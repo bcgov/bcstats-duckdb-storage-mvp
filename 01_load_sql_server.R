@@ -16,13 +16,31 @@ if(!require(pacman)){
 
 pacman::p_load(odbc, tidyverse, config, DBI, dbplyr,nanoarrow, arrow, duckdb)
 
-# we save the path to a config file
+
+# Define the path to the test CSV folder
+# This path is retrieved from the configuration file
 test_csv_folder = config::get("test_sql_server_csv")
-list.files(test_csv_folder, pattern = "*.csv", full.names = T)[1]
+
+# List all CSV files in the test folder
+# This will return a character vector of file paths
+csv_files = list.files(test_csv_folder, pattern = "*.csv", full.names = TRUE)
+
+# Print the number of CSV files found
+cat("Number of CSV files found:", length(csv_files), "\n")
+
+# Print the first file path (if any files were found)
+if (length(csv_files) > 0) {
+  cat("First CSV file:", csv_files[1], "\n")
+} else {
+  cat("No CSV files found in the specified folder.\n")
+}
+
+
 ##################################################################################
 # Test loading a big file to MS sql server
 ##################################################################################
 
+# Connect to SQL Server
 con <-dbConnect(odbc::odbc(),
                 Driver = config::get("Driver"),
                 Server = config::get("Server"),
@@ -36,6 +54,7 @@ tables <- dbListTables(con)
 dbGetInfo(con)
 # Get DBMS metadata
 
+# following are the functions to execute a query on a given database connection
 # dbSendQuery()
 # Execute a query on a given database connection
 # dbSendStatement()
@@ -50,28 +69,32 @@ dbGetInfo(con)
 #   sp_rename 'old_table_name','new_table_name';
 
 # rename new data by remove "day"
-DBI::dbExecute(con, "exec sp_rename 'IDIR\\JDUAN.BC_Stat_CLR_EXT_20230525', 'BC_Stat_CLR_EXT_202305' ;")
+# DBI::dbExecute(con, "exec sp_rename 'IDIR\\JDUAN.BC_Stat_CLR_EXT_20230525', 'BC_Stat_CLR_EXT_202305' ;")
 
 # dbWriteTableArrow()
 # # Copy Arrow objects to database tables
 # dbCreateTableArrow()
 # # Create a table in the database based on an Arrow object
 
-
+# following are the functions to read data from a arrow database table
 # read data
 # data <- open_dataset(sources = flnm,
 #                      format = format,
 #                      schema = schema,
 #                      skip = 1)
 
+# read data from a csv file using arrow facility
+data <- read_csv_arrow(file = csv_files[1])
 
-data <- read_csv_arrow(file = list.files(test_csv_folder, full.names = T)[1])
+# show the data structure
 data %>% glimpse()
 
 # write to sql server
+
+# use tictoc to time the process
 tictoc::tic()
 DBI::dbWriteTableArrow(con,
-                       name = "BC_Stat_Population_Estimates_20240527",
+                       name = "BC_Stat_Population_Estimates_202408",
                        nanoarrow::as_nanoarrow_array_stream(data)
                        # append = append
 )
@@ -79,18 +102,19 @@ DBI::dbWriteTableArrow(con,
 tictoc::toc()
 # 590.52 sec elapsed
 
-
-
-
+# disconnect from the database
 dbDisconnect(con)
 
 # to repeat this process, we can put them in a function.
 
-dbDisconnect(con)
+# define a function to load a csv file and save to a database
+load_csv_save_db = function(con, file_path, table_name){
+  # allow the function to accept a connection object, file path and table name
 
-load_csv_save_db = function(con,file_path, table_name){
-  # ulitize the arrow to load the CSV files and write to a database, which in this case is decimal database.
-  data <- read_csv_arrow(file = file_path)
+  # read the csv file into an arrow object,  
+  # ulitize the arrow to load the CSV files and write to a database, which in this case is sql server database.
+  data <- arrow::read_csv_arrow(file = file_path)
+  # show the data structure
   data %>% glimpse()
 
   # write to sql server
@@ -100,16 +124,14 @@ load_csv_save_db = function(con,file_path, table_name){
                          nanoarrow::as_nanoarrow_array_stream(data)
                          # append = append
   )
-
   tictoc::toc()
-
-  # dbDisconnect(con)
+  # disconnect from the database
+  DBI::dbDisconnect(con)
 }
 
 
 # as long as we know the csv file path, we can load them in arrow and save arrow object to sql server.
-load_csv_save_db(con,
-                 file_path = list.files(test_csv_folder, pattern = "*.csv", full.names = T)[2],
+load_csv_save_db(file_path = list.files(test_csv_folder, pattern = "*.csv", full.names = T)[2],
                  table_name = "BC_Stat_Population_Estimates_2024082")
 
 
@@ -130,13 +152,12 @@ load_csv_save_db(con,
 #
 # tictoc::toc()
 # 412.19 sec elapsed
-
-load_csv_save_db(con,
-                 file_path = list.files(test_csv_folder, pattern = "*.csv", full.names = T)[3],
+load_csv_save_db(file_path = list.files(test_csv_folder, pattern = "*.csv", full.names = T)[3],
                  table_name = "BC_Stat_Population_Estimates_2024082")
 
 ##################################################################################
 # Test loading a big file to duckdb
+# The following code is to test the performance of loading a big file to duckdb
 ##################################################################################
 # write to arrow dataset
 # tictoc::tic()
@@ -178,89 +199,4 @@ load_csv_save_db(con,
 # BC_Stat_CLR_EXT_20230525 %>%
 #   glimpse()
 
-
-##################################################################################
-# Test loading a big CSV file to duckdb database directly
-##################################################################################
-
-
-# Create a connection to a new DuckDB database file
-bcstats_con <- duckdb::dbConnect(duckdb::duckdb(), paste0(test_csv_folder, "/bcstats_db.duckdb"))
-dbListTables(bcstats_con)
-
-load_csv_save_db(bcstats_con,
-                 file_path = list.files(test_csv_folder, pattern = "*.csv", full.names = T)[3],
-                 table_name = "BC_Stat_Population_Estimates_2024082")
-
-
-# Load a CSV file into DuckDB
-tictoc::tic()
-duckdb::duckdb_read_csv(
-  conn = bcstats_con,
-  name = "BC_Stat_Population_Estimates_202408",       # Name of the table to create
-  files = list.files(test_csv_folder, pattern = "*.csv",full.names = T)[2],  # Path to the CSV file
-  header = TRUE,           # Whether the CSV file has a header row
-  delim = ",",             # Delimiter used in the CSV file
-  quote = "\"",            # Quote character used in the CSV file
-  na.strings = "",         # Strings to interpret as NA
-  transaction = TRUE       # Whether to wrap the operation in a transaction
-)
-tictoc::toc()
-# 10.61 sec elapsed
-# Error: rapi_execute: Failed to run query
-# Error: FATAL Error: Failed to create checkpoint because of error: INTERNAL Error: Unsupported compression function type
-
-# Query the table
-result <- dbGetQuery(bcstats_con, "SELECT * FROM BC_Stat_Population_Estimates_20240527 ")
-print(result)
-
-
-
-# Load a CSV file into DuckDB
-# tictoc::tic()
-# duckdb::duckdb_read_csv(
-#   conn = bcstats_con,
-#   name = "BC_Stat_CLR_EXT_20230525",       # Name of the table to create
-#   files = list.files(test_csv_folder, pattern = "*.csv",full.names = T)[3],  # Path to the CSV file
-#   header = TRUE,           # Whether the CSV file has a header row
-#   delim = ",",             # Delimiter used in the CSV file
-#   quote = "\"",            # Quote character used in the CSV file
-#   na.strings = "",         # Strings to interpret as NA
-#   transaction = TRUE       # Whether to wrap the operation in a transaction
-# )
-# tictoc::toc()
-# 7.28 sec elapsed
-
-
-
-# Query the table
-result <- dbGetQuery(bcstats_con, "SELECT * FROM BC_Stat_CLR_EXT_20230525")
-print(result)
-
-## write a table to it
-dbWriteTable(bcstats_con, "iris", iris)
-
-
-# create / connect to database file
-drv <- duckdb(dbdir = "C:\\Users\\JDUAN\\OneDrive - Government of BC\\2024-025 Brett and Jon Database Test Warehouse/backup/bcstats_db.duckdb")
-bcstats_con <- dbConnect(drv)
-
-# Show how many tables in database
-dbListTables(bcstats_con)
-# many tables.
-# list columns/fields in one table
-dbListFields(bcstats_con, "BC_Stat_Population_Estimates_20240527")
-
-dbListFields(bcstats_con, "BC_Stat_CLR_EXT_20230525")
-
-
-
-dbDisconnect(bcstats_con, shutdown = TRUE)
-
-
-# New code should prefer dbCreateTable() and dbAppendTable().
-
-mtcars
-
-dbWriteTable(con, name = "test_mtcars_4", value = mtcars )
 
