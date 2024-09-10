@@ -107,10 +107,26 @@ BC_Stat_CLR_EXT_20230525 %>%
   glimpse()
 
 
+##################################################################
+# second method
 # create / connect to database file in another way
 drv <- duckdb(dbdir = file.path(test_csv_folder, "bcstats_db.duckdb"),
                read_only = FALSE)
 bcstats_con <- dbConnect(drv)
+
+tictoc::tic()
+duckdb::duckdb_read_csv(
+  conn = bcstats_con,
+  name = table_names[2],       # Name of the table to create
+  files = csv_files[2],  # Path to the CSV file
+  header = TRUE,           # Whether the CSV file has a header row
+  delim = ",",             # Delimiter used in the CSV file
+  quote = "\"",            # Quote character used in the CSV file
+  na.strings = "",         # Strings to interpret as NA
+  transaction = TRUE       # Whether to wrap the operation in a transaction
+)
+tictoc::toc()
+
 
 # Show how many tables in database
 dbListTables(bcstats_con)

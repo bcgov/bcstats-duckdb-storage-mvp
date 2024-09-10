@@ -37,7 +37,7 @@ if (length(csv_files) > 0) {
 
 # retrieve the file name from the file path, which is the table name
 table_names = basename(csv_files) %>% str_remove(".csv")
-# some table names are not valid in duckdb, we need to change them
+# some table names are not valid in database, we need to change them
 table_names = table_names %>% str_replace_all(" ", "_")
 
 ##################################################################################
@@ -88,26 +88,26 @@ dbGetInfo(con)
 #                      skip = 1)
 
 # read data from a csv file using arrow facility
-data <- read_csv_arrow(file = csv_files[1])
-
-# show the data structure
-data %>% glimpse()
-
-# write to sql server
-
-# use tictoc to time the process
-tictoc::tic()
-DBI::dbWriteTableArrow(con,
-                       name = table_names[1],
-                       nanoarrow::as_nanoarrow_array_stream(data)
-                       # append = append
-)
-
-tictoc::toc()
-# 590.52 sec elapsed
-
-# disconnect from the database
-dbDisconnect(con)
+# data <- read_csv_arrow(file = csv_files[1])
+#
+# # show the data structure
+# data %>% glimpse()
+#
+# # write to sql server
+#
+# # use tictoc to time the process
+# tictoc::tic()
+# DBI::dbWriteTableArrow(con,
+#                        name = table_names[1],
+#                        nanoarrow::as_nanoarrow_array_stream(data)
+#                        # append = append
+# )
+#
+# tictoc::toc()
+# # 590.52 sec elapsed
+#
+# # disconnect from the database
+# dbDisconnect(con)
 
 # to repeat this process, we can put them in a function.
 
@@ -115,7 +115,7 @@ dbDisconnect(con)
 load_csv_save_db = function(con, file_path, table_name){
   # allow the function to accept a connection object, file path and table name
 
-  # read the csv file into an arrow object,  
+  # read the csv file into an arrow object,
   # ulitize the arrow to load the CSV files and write to a database, which in this case is sql server database.
   data <- arrow::read_csv_arrow(file = file_path)
   # show the data structure
@@ -141,7 +141,7 @@ load_csv_save_db = function(con, file_path, table_name){
 # The `nanoarrow::as_nanoarrow_array_stream()` function specifically converts the data into an Arrow array stream, which is a more efficient format for transferring data to the database when using `dbWriteTableArrow()`.
 
 # It's worth noting that while this approach is generally more efficient, the best method can depend on your specific use case, data size, and the capabilities of the database you're working with. For smaller datasets or simpler operations, the performance difference might be negligible.
-                         
+
   )
   tictoc::toc()
   # disconnect from the database
