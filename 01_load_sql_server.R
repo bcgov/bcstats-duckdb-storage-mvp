@@ -35,6 +35,10 @@ if (length(csv_files) > 0) {
   cat("No CSV files found in the specified folder.\n")
 }
 
+# retrieve the file name from the file path, which is the table name
+table_names = basename(csv_files) %>% str_remove(".csv")
+# some table names are not valid in duckdb, we need to change them
+table_names = table_names %>% str_replace_all(" ", "_")
 
 ##################################################################################
 # Test loading a big file to MS sql server
@@ -94,7 +98,7 @@ data %>% glimpse()
 # use tictoc to time the process
 tictoc::tic()
 DBI::dbWriteTableArrow(con,
-                       name = "BC_Stat_Population_Estimates_202408",
+                       name = table_names[1],
                        nanoarrow::as_nanoarrow_array_stream(data)
                        # append = append
 )
@@ -121,8 +125,23 @@ load_csv_save_db = function(con, file_path, table_name){
   tictoc::tic()
   DBI::dbWriteTableArrow(con,
                          name = table_name,
-                         nanoarrow::as_nanoarrow_array_stream(data)
-                         # append = append
+                         nanoarrow::as_nanoarrow_array_stream(data) # explain why we use nanoarrow here instead of directly using data with dbWriteTable()
+# Based on the search results, using `nanoarrow::as_nanoarrow_array_stream(data)` with `dbWriteTableArrow()` is generally preferred over directly using `dbWriteTable()` for a few key reasons:
+
+# 1. Performance: The Arrow-based approach can be significantly faster, especially for larger datasets. This is because it leverages Arrow's efficient columnar format and avoids unnecessary data conversions [christophenicault.com](https://www.christophenicault.com/post/large_dataframe_arrow_duckdb/).
+
+# 2. Memory efficiency: When using Arrow, the data doesn't need to be fully loaded into R's memory. This is particularly beneficial for large datasets that might not fit into RAM [arrow.apache.org](https://arrow.apache.org/docs/r/articles/data_wrangling.html).
+
+# 3. Type fidelity: Arrow maintains better type fidelity between R and the database, which can be important for certain data types or when working with multiple languages or systems [cran.r-project.org](https://cran.r-project.org/web/packages/DBI/vignettes/DBI-arrow.html).
+
+# 4. Interoperability: The Arrow format is designed for cross-language compatibility, making it easier to work with the same data in different environments (R, Python, C++, etc.) [arrow.apache.org](https://arrow.apache.org/docs/r/).
+
+# 5. Lazy evaluation: Arrow uses lazy evaluation, which can optimize query execution by allowing the database to perform multiple computations in one operation [christophenicault.com](https://www.christophenicault.com/post/large_dataframe_arrow_duckdb/).
+
+# The `nanoarrow::as_nanoarrow_array_stream()` function specifically converts the data into an Arrow array stream, which is a more efficient format for transferring data to the database when using `dbWriteTableArrow()`.
+
+# It's worth noting that while this approach is generally more efficient, the best method can depend on your specific use case, data size, and the capabilities of the database you're working with. For smaller datasets or simpler operations, the performance difference might be negligible.
+                         
   )
   tictoc::toc()
   # disconnect from the database
@@ -131,72 +150,27 @@ load_csv_save_db = function(con, file_path, table_name){
 
 
 # as long as we know the csv file path, we can load them in arrow and save arrow object to sql server.
-load_csv_save_db(file_path = list.files(test_csv_folder, pattern = "*.csv", full.names = T)[2],
-                 table_name = "BC_Stat_Population_Estimates_2024082")
+load_csv_save_db(con,
+                 file_path = csv_files[2],
+                 table_name = table_names[2])
 
 
 #################################################################################
 #################################################################################
 # second dataset
-# data <- read_csv_arrow(file = list.files(test_csv_folder,pattern = "*.csv", full.names = T)[2])
-# data %>% glimpse()
-#
-#
-# # write to sql server using arrow helps
-# tictoc::tic()
-# DBI::dbWriteTableArrow(con,
-#                        name = "BC_Stat_CLR_EXT_20230525",
-#                        nanoarrow::as_nanoarrow_array_stream(data)
-#                        # append = append
-# )
-#
-# tictoc::toc()
-# 412.19 sec elapsed
-load_csv_save_db(file_path = list.files(test_csv_folder, pattern = "*.csv", full.names = T)[3],
-                 table_name = "BC_Stat_Population_Estimates_2024082")
 
-##################################################################################
-# Test loading a big file to duckdb
-# The following code is to test the performance of loading a big file to duckdb
-##################################################################################
-# write to arrow dataset
-# tictoc::tic()
-# write_dataset(dataset =  data %>% group_by(LHA),
-#               path = paste0(test_csv_folder, "/BC_Stat_Population_Estimates_20240527"),
-#               format = "parquet"
-# )
-# tictoc::toc()
-# # 6.2 sec elapsed
-#
-#
-# ##################################################################################
-# # Test loading a big file to duckdb
-# ##################################################################################
-# # write to arrow dataset
-# tictoc::tic()
-# write_dataset(dataset =  data %>% group_by(LHA),
-#               path = paste0(test_csv_folder, "/BC_Stat_CLR_EXT_20230525"),
-#               format = "parquet"
-# )
-# tictoc::toc()
-# # 3.08 sec elapsed
-#
-#
-#
-# ##################################################################################
-# # Using duckdb to join data
-# ##################################################################################
-#
-#
-#
-# BC_Stat_Population_Estimates_20240527 = open_dataset(paste0(test_csv_folder, "/BC_Stat_Population_Estimates_20240527"))
-#
-# BC_Stat_CLR_EXT_20230525 = open_dataset(paste0(test_csv_folder, "/BC_Stat_CLR_EXT_20230525"))
-#
-# BC_Stat_Population_Estimates_20240527 %>%
-#   glimpse()
-#
-# BC_Stat_CLR_EXT_20230525 %>%
-#   glimpse()
+con <-dbConnect(odbc::odbc(),
+                Driver = config::get("Driver"),
+                Server = config::get("Server"),
+                Database = config::get("Database"),
+                Trusted_Connection = "True"
+)
+# 412.19 sec elapsed
+load_csv_save_db(con,
+                 file_path = csv_files[3],
+                 table_name = table_names[3])
+
+
+# New code should prefer dbCreateTable() and dbAppendTable().
 
 

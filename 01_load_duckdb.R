@@ -35,6 +35,11 @@ if (length(csv_files) > 0) {
   cat("No CSV files found in the specified folder.\n")
 }
 
+# retrieve the file name from the file path, which is the table name
+table_names = basename(csv_files) %>% str_remove(".csv")
+# some table names are not valid in duckdb, we need to change them
+table_names = table_names %>% str_replace_all(" ", "_")
+
 
 ##################################################################################
 # Test loading a big CSV file to duckdb database directly
@@ -43,8 +48,8 @@ if (length(csv_files) > 0) {
 
 # Create a connection to a new DuckDB database file
 # The function will create a duckdb database file in the test_csv_folder if there is no such file
-bcstats_con <- duckdb::dbConnect(duckdb::duckdb(), 
-file.path(test_csv_folder, "bcstats_db.duckdb"))
+bcstats_con <- duckdb::dbConnect(duckdb::duckdb(),
+                                file.path(test_csv_folder, "bcstats_db.duckdb"))
 
 ## test connection by write a small table to it
 dbWriteTable(bcstats_con, "iris", iris)
@@ -54,16 +59,15 @@ dbListTables(bcstats_con)
 
 
 
-# load a csv file to the database
+# load a csv file to the database using custom function
 load_csv_save_db(bcstats_con,
                  file_path = csv_files[3],
-                 table_name = "BC_Stat_Population_Estimates_2024082")
-
-# Load a CSV file into DuckDB directly using duckdb_read_csv function
+                 table_name = table_names[3])
+# second solution is using duckdb_read_csv function
 tictoc::tic()
 duckdb::duckdb_read_csv(
   conn = bcstats_con,
-  name = "BC_Stat_Population_Estimates_202408",       # Name of the table to create
+  name = table_names[2],       # Name of the table to create
   files = csv_files[2],  # Path to the CSV file
   header = TRUE,           # Whether the CSV file has a header row
   delim = ",",             # Delimiter used in the CSV file
@@ -104,14 +108,14 @@ BC_Stat_CLR_EXT_20230525 %>%
 
 
 # create / connect to database file in another way
-drv <- duckdb(dbdir = file.path(test_csv_folder, "bcstats_db.duckdb"), 
+drv <- duckdb(dbdir = file.path(test_csv_folder, "bcstats_db.duckdb"),
                read_only = FALSE)
 bcstats_con <- dbConnect(drv)
 
 # Show how many tables in database
 dbListTables(bcstats_con)
 # many tables.
-# list columns/fields in one table  
+# list columns/fields in one table
 dbListFields(bcstats_con, "BC_Stat_Population_Estimates_20240527")
 
 dbListFields(bcstats_con, "BC_Stat_CLR_EXT_20230525")
@@ -123,3 +127,66 @@ dbDisconnect(bcstats_con, shutdown = TRUE)
 
 
 # New code should prefer dbCreateTable() and dbAppendTable().
+
+
+#
+#
+# ##################################################################################
+# # Using duckdb to join data
+# ##################################################################################
+#
+#
+#
+# BC_Stat_Population_Estimates_20240527 = open_dataset(paste0(test_csv_folder, "/BC_Stat_Population_Estimates_20240527"))
+#
+# BC_Stat_CLR_EXT_20230525 = open_dataset(paste0(test_csv_folder, "/BC_Stat_CLR_EXT_20230525"))
+#
+# BC_Stat_Population_Estimates_20240527 %>%
+#   glimpse()
+#
+# BC_Stat_CLR_EXT_20230525 %>%
+#   glimpse()
+
+##################################################################################
+# Test loading a big file to duckdb
+# The following code is to test the performance of loading a big file to duckdb
+##################################################################################
+# write to arrow dataset
+# tictoc::tic()
+# write_dataset(dataset =  data %>% group_by(LHA),
+#               path = paste0(test_csv_folder, "/BC_Stat_Population_Estimates_20240527"),
+#               format = "parquet"
+# )
+# tictoc::toc()
+# # 6.2 sec elapsed
+#
+#
+# ##################################################################################
+# # Test loading a big file to duckdb
+# ##################################################################################
+# # write to arrow dataset
+# tictoc::tic()
+# write_dataset(dataset =  data %>% group_by(LHA),
+#               path = paste0(test_csv_folder, "/BC_Stat_CLR_EXT_20230525"),
+#               format = "parquet"
+# )
+# tictoc::toc()
+# # 3.08 sec elapsed
+#
+#
+#
+# ##################################################################################
+# # Using duckdb to join data
+# ##################################################################################
+#
+#
+#
+# BC_Stat_Population_Estimates_20240527 = open_dataset(paste0(test_csv_folder, "/BC_Stat_Population_Estimates_20240527"))
+#
+# BC_Stat_CLR_EXT_20230525 = open_dataset(paste0(test_csv_folder, "/BC_Stat_CLR_EXT_20230525"))
+#
+# BC_Stat_Population_Estimates_20240527 %>%
+#   glimpse()
+#
+# BC_Stat_CLR_EXT_20230525 %>%
+#   glimpse()
