@@ -17,10 +17,10 @@ The primary objective of this proposal is to demonstrate the capabilities of Duc
 3. Evaluate DuckDB’s performance in handling complex analytical queries and its integration with existing tools. 
 ### Rationale
 DuckDB offers several advantages over other transaction database solutions for our use case:
-•	Cost-Effectiveness: DuckDB is free and open-source, eliminating licensing costs associated with standalone database servers. DuckDB can be hosted on a local or network drive, has no software dependencies and does not require a server.
-•	Performance: Despite being lightweight, DuckDB is feature-rich and optimized for fast analytical queries and can efficiently handle large datasets (e.g., hundreds of gigabyte-scale).
-•	Ease of Integration: DuckDB is designed to be easily embedded within various programming environments, making it highly compatible with our existing workflows.
-•	Flexibility: DuckDB supports multiple data formats natively, reducing the need for extensive data transformation and preprocessing.
+1. Cost-Effectiveness: DuckDB is free and open-source, eliminating licensing costs associated with standalone database servers. DuckDB can be hosted on a local or network drive, has no software dependencies and does not require a server.
+2.	Performance: Despite being lightweight, DuckDB is feature-rich and optimized for fast analytical queries and can efficiently handle large datasets (e.g., hundreds of gigabyte-scale).
+3.	Ease of Integration: DuckDB is designed to be easily embedded within various programming environments, making it highly compatible with our existing workflows.
+4.	Flexibility: DuckDB supports multiple data formats natively, reducing the need for extensive data transformation and preprocessing.
 Limitations: DuckDB is not designed for frequent CRUD (create, read, update, and delete) operations, and only one user can write to the DuckDB database at a time (but note many users can read and query simultaneously).  BC Stats is primarily a data analytics shop and our data is not frequently updated so these limitations might be easily mitigated.
 
 
