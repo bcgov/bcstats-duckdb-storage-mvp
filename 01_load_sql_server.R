@@ -138,38 +138,6 @@ dbListFields(
 
 
 
-# create a function for the preprocess
-# SQL server requires the long text fields at the end of the select clause
-read_sql_query = function(con, tbl_name, table_prefix, query = NULL) {
-  # grab all column names
-  all_cols <- odbcListColumns(con, tbl_name)
-  # all_cols <- odbc::dbListFields(conn= con, name = tbl_name)
-  # extract ntext columns
-  long_cols = all_cols %>%
-    dplyr::filter(type == "ntext") %>%
-    pull(name)
-  # extract text columns
-  other_cols = all_cols %>%
-    dplyr::filter(type == "text") %>%
-    pull(name)
-  # put ntext at the end
-  long_cols = unique(c(other_cols, long_cols))
-
-  # reorder the selection to not error
-  if (is.null(query)){
-    tab = dplyr::tbl(con, sql(glue::glue("SELECT *  FROM {table_prefix}.[{tbl_name}]"))) %>%
-      dplyr::select(-tidyselect::any_of(long_cols),
-                    tidyselect::everything(),
-                    tidyselect::any_of(long_cols))
-  } else {
-    tab = dplyr::tbl(con, sql(query)) %>%
-      dplyr::select(-tidyselect::any_of(long_cols),
-                    tidyselect::everything(),
-                    tidyselect::any_of(long_cols))
-  }
-
-}
-
 
 
 # this is the decimal database schema that Brett created. All the existed tables are under this schema.

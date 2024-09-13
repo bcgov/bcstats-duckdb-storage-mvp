@@ -79,7 +79,7 @@ load_csv_save_db = function(con, file_path, table_name){
   # ulitize the arrow to load the CSV files and write to a database, which in this case is sql server database.
   data <- arrow::read_csv_arrow(file = file_path)
   # show the data structure
-  data %>% glimpse()
+  data %>% head(3) %>% glimpse()
 
   # write to sql server
   tictoc::tic()
