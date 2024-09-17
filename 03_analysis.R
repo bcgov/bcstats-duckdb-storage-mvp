@@ -169,7 +169,7 @@ order by b.FY_LHA
 tictoc::tic()
 result <- dbGetQuery(bcstats_read_con, sql_query)
 tictoc::toc()
-# 5.61 sec elapsed
+# 18.61 sec elapsed
 result %>% glimpse()
 
 # or
@@ -278,7 +278,18 @@ join first_pop d on d.SY_LHA = a.SY_LHA
 order by b.FY_LHA
 )"
 
+tictoc::tic()
+result <- dbGetQuery(bcstats_read_con, sql_query)
+tictoc::toc()
+# 18.61 sec elapsed
+result %>% glimpse()
 
+# or
+tictoc::tic()
+result <- dbSendQuery(bcstats_read_con, sql_query)
+data <- dbFetch(result)
+dbClearResult(result)
+tictoc::toc()
 
 
 # second method
@@ -286,7 +297,23 @@ order by b.FY_LHA
 
 
 # tbl(src = bcstats_read_con, sql())
-sql_query <- readLines("query.sql") %>% paste(collapse = "\n")
+sql_query <- readLines("test_sql.sql") %>% paste(collapse = "\n")
+sql_query <- read_file("test_sql.sql")
+
+tictoc::tic()
+result <- dbGetQuery(bcstats_read_con, sql_query)
+tictoc::toc()
+# 18.61 sec elapsed
+result %>% glimpse()
+
+
+
+# or
+tictoc::tic()
+result <- dbSendQuery(bcstats_read_con, sql_query)
+data <- dbFetch(result)
+dbClearResult(result)
+tictoc::toc()
 
 
 # For dynamic queries, use parameterized queries with sqlInterpolate() to prevent SQL injection.
