@@ -17,7 +17,7 @@ if(!require(pacman)){
 pacman::p_load(odbc, tidyverse, config, DBI, dbplyr,nanoarrow, arrow, duckdb)
 
 
-setwd("path")
+# setwd("path")
 
 # Define the path to the test CSV folder
 # This path is retrieved from the configuration file
@@ -27,7 +27,10 @@ test_csv_folder = config::get("test_sql_server_csv")
 
 # List all CSV files in the test folder
 # This will return a character vector of file paths
-csv_files = list.files(test_csv_folder, pattern = "*.csv", full.names = TRUE)
+csv_files = list.files(
+  file.path(test_csv_folder, "raw_data"),
+  pattern = "*.csv",
+  full.names = TRUE)
 
 # Print the number of CSV files found
 cat("Number of CSV files found:", length(csv_files), "\n")

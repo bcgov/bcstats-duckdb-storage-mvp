@@ -23,9 +23,37 @@ source(file = "./utils/utils.r")
 # This path is retrieved from the configuration file
 test_csv_folder = config::get("test_sql_server_csv")
 
-# List all CSV files in the test folder
+
+##################################################################################
+# Test loading a big CSV file to duckdb database directly
+##################################################################################
+
+
+# Create a connection to a new DuckDB database file
+# The function will create a duckdb database file in the test_csv_folder if there is no such file
+bcstats_con <- duckdb::dbConnect(duckdb::duckdb(),
+                                 file.path(test_csv_folder, "db/bcstats_db.duckdb"))
+
+## test connection by write a small table to it
+# dbWriteTable(bcstats_con, "iris", iris)
+
+# list all tables in the database
+dbListTables(bcstats_con)
+
+
+# file_path = csv_files[2]
+# table_name = table_names[2]
+# con = bcstats_con
+
+
+# List all CSV and zip files in the test folder
 # This will return a character vector of file paths
-csv_files = list.files(test_csv_folder, pattern = "*.csv", full.names = TRUE)
+csv_files = list.files(
+  file.path(test_csv_folder, "raw_data"),
+  pattern = "*.csv|*.zip",
+  full.names = TRUE)
+
+
 
 # Print the number of CSV files found
 cat("Number of CSV files found:", length(csv_files), "\n")
@@ -38,32 +66,13 @@ if (length(csv_files) > 0) {
 }
 
 # retrieve the file name from the file path, which is the table name
-table_names = basename(csv_files) %>% str_remove(".csv")
+table_names = basename(csv_files) %>% str_remove(".csv|.zip")
 # some table names are not valid in duckdb, we need to change them
 table_names = table_names %>% clean_table_names() # clean_table_names is from utils.r
 # # Done: clean the table names, roll back one month, rules,
 
 
-##################################################################################
-# Test loading a big CSV file to duckdb database directly
-##################################################################################
 
-
-# Create a connection to a new DuckDB database file
-# The function will create a duckdb database file in the test_csv_folder if there is no such file
-bcstats_con <- duckdb::dbConnect(duckdb::duckdb(),
-                                file.path(test_csv_folder, "bcstats_db.duckdb"))
-
-## test connection by write a small table to it
-# dbWriteTable(bcstats_con, "iris", iris)
-
-# list all tables in the database
-dbListTables(bcstats_con)
-
-
-file_path = csv_files[2]
-table_name = table_names[2]
-con = bcstats_con
 
 ##################################################################################
 # First method using the custom function
@@ -71,7 +80,7 @@ con = bcstats_con
 # load a csv file to the database using custom function
 tictoc::tic()
 
-data <- arrow::read_csv_arrow(file = file_path)
+# data <- arrow::read_csv_arrow(file = file_path)
 # show the data structure
 # data %>% glimpse()
 
@@ -80,11 +89,13 @@ data <- arrow::read_csv_arrow(file = file_path)
 
 
 load_csv_save_db(bcstats_con,
-                 file_path = csv_files[2],
-                 table_name = table_names[2])
+                 file_path = csv_files[1],
+                 table_name = table_names[1])
 tictoc::toc()
 
 # 35.24 sec elapsed
+
+
 ##################################################################################
 # If there is an error: Error: FATAL Error: Failed to create checkpoint because of error: INTERNAL Error: Unsupported compression function type
 # 1. Update the arrow and duckdb packages: install.packages(c("arrow", "duckdb", "duckdbfs", "duckplyr"))

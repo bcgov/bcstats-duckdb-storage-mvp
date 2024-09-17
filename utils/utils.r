@@ -72,30 +72,66 @@ pacman::p_load(odbc, tidyverse, config, DBI, dbplyr,nanoarrow, arrow, duckdb)
 #'
 #' @export
 #'
-load_csv_save_db = function(con, file_path, table_name){
-  # allow the function to accept a connection object, file path and table name
+load_csv_save_db <- function(con, file_path, table_name) {
+  library(arrow)
+  library(DBI)
+  library(nanoarrow)
+  library(tidyverse)
 
-  # read the csv file into an arrow object,
-  # ulitize the arrow to load the CSV files and write to a database, which in this case is sql server database.
-  data <- arrow::read_csv_arrow(file = file_path)
-  # show the data structure
-  data %>% head(3) %>% glimpse()
+  # Check if the file is zipped
+  is_zipped <- grepl("\\.zip$", file_path, ignore.case = TRUE)
 
-  # write to sql server
   tictoc::tic()
-  DBI::dbWriteTableArrow(con,
-                         name = table_name,
-                         nanoarrow::as_nanoarrow_array_stream(data) # explain why we use nanoarrow here instead of directly using data with dbWriteTable()
+  if (is_zipped) {
+    # Extract the CSV file name from the zip (assuming there's only one CSV)
+    zip_contents <- unzip(file_path, list = TRUE)
+    csv_file_name <- zip_contents$Name[grepl("\\.csv$", zip_contents$Name, ignore.case = TRUE)][1]
 
+    # Use Arrow to read the zipped CSV
+    print("Reading CSV file from ZIP file...")
+    data <- arrow::read_csv_arrow(unz(file_path, csv_file_name))
+  } else {
+    # Use Arrow to read the CSV directly
+    print("Reading CSV file directly... ")
+    data <- arrow::read_csv_arrow(file_path)
+  }
+  tictoc::toc()
+
+  # Convert Arrow Table to nanoarrow array stream
+  nanoarrow_stream <- nanoarrow::as_nanoarrow_array_stream(data)
+
+  # This function converts the Arrow Table to a nanoarrow array stream, which is optimized for efficient, chunk-wise data transfer to the database.
+  # Using nanoarrow allows for better performance when writing large datasets, as it can stream the data in chunks rather than loading everything into memory at once.
+  # It's particularly useful when working with Arrow objects, as it provides a seamless integration between Arrow and database writing operations.
+
+  # Check if the table exists
+  if (DBI::dbExistsTable(con, table_name)) {
+    # If it exists, drop the table
+    DBI::dbRemoveTable(con, table_name)
+    message(paste("Existing table", table_name, "has been dropped and will be replaced."))
+  }
+
+  # Write to database using DBI and nanoarrow
+  tictoc::tic()
+  print("Write to database using DBI and nanoarrow...")
+  DBI::dbWriteTableArrow(
+    con,
+    name = table_name,
+    nanoarrow_stream,
+    overwrite = TRUE  # This ensures the table is overwritten if it somehow still exists
   )
   tictoc::toc()
-  # disconnect from the database
-  DBI::dbDisconnect(con)
+
+  # Optionally, you can add a message to indicate which method was used
+  if (is_zipped) {
+    message("Used Arrow to read zipped CSV")
+  } else {
+    message("Used Arrow to read CSV directly")
+  }
 }
 
 
-library(tidyverse)
-library(lubridate)
+
 
 #' Clean and Transform Table Names with Date Rollback
 #'
@@ -137,10 +173,14 @@ library(lubridate)
 #' @importFrom lubridate ymd days floor_date
 #'
 #' @export
+
+
 clean_table_names <- function(table_names) {
+  library(tidyverse)
+  library(lubridate)
   tibble(name = table_names) %>%
     mutate(
-      name = str_replace_all(name, " ", "_"),
+      name = str_replace_all(name, " | - |-", "_"),
       date_part = str_extract(name, "\\d{8}$"),
       base_name = str_remove(name, "\\d{8}$"),
       new_date = if_else(
@@ -152,11 +192,16 @@ clean_table_names <- function(table_names) {
         !is.na(date_part),
         paste0(base_name, new_date),
         name
+      ),
+      # Add "tab" prefix only if the name starts with a digit
+      final_name = if_else(
+        str_detect(cleaned_name, "^\\d"),
+        paste0("tab_", cleaned_name),
+        cleaned_name
       )
     ) %>%
-    pull(cleaned_name)
+    pull(final_name)
 }
-
 
 
 # create a function for the preprocess
