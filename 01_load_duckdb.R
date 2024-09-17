@@ -14,7 +14,7 @@ if(!require(pacman)){
   install.packages("pacman")
 }
 
-pacman::p_load(odbc, tidyverse, config, DBI, dbplyr,nanoarrow, arrow, duckdb)
+pacman::p_load(odbc, tidyverse, config, DBI, dbplyr,nanoarrow, arrow, duckdb,tictoc)
 
 # import functions from utils.r
 source(file = "./utils/utils.r")
@@ -41,32 +41,38 @@ bcstats_con <- duckdb::dbConnect(duckdb::duckdb(),
 dbListTables(bcstats_con)
 
 
-# file_path = csv_files[2]
+# file_path = files_to_process [2]
 # table_name = table_names[2]
 # con = bcstats_con
 
 
 # List all CSV and zip files in the test folder
 # This will return a character vector of file paths
-csv_files = list.files(
+files_to_process  = list.files(
   file.path(test_csv_folder, "raw_data"),
   pattern = "*.csv|*.zip",
   full.names = TRUE)
-
+# There are tow files that have un utf8 encoding in their string columns. We have to convert them into UTF8 from ascii encoding in github shell.
+# -- This command will:
+#   -- Attempt to convert from ASCII to UTF-8
+# -- Use //TRANSLIT to replace characters that can't be represented in UTF-8
+# -- Use -c to skip invalid characters
+# iconv -f ASCII -t UTF-8//TRANSLIT -c raw_data/98-401-X2021006_English_CSV_data_BritishColumbia.csv > raw_data/98-401-X2021006_English_CSV_data_BritishColumbia-utf8.csv
+# iconv -f ASCII -t UTF-8//TRANSLIT -c raw_data/98-401-X2021025_English_CSV_data.csv > raw_data/98-401-X2021025_English_CSV_data-utf8.csv
 
 
 # Print the number of CSV files found
-cat("Number of CSV files found:", length(csv_files), "\n")
+cat("Number of CSV files found:", length(files_to_process ), "\n")
 
 # Print the first file path (if any files were found)
-if (length(csv_files) > 0) {
-  cat("First CSV file:", csv_files[1], "\n")
+if (length(files_to_process ) > 0) {
+  cat("First CSV file:", files_to_process [1], "\n")
 } else {
   cat("No CSV files found in the specified folder.\n")
 }
 
 # retrieve the file name from the file path, which is the table name
-table_names = basename(csv_files) %>% str_remove(".csv|.zip")
+table_names = basename(files_to_process ) %>% str_remove(".csv|.zip")
 # some table names are not valid in duckdb, we need to change them
 table_names = table_names %>% clean_table_names() # clean_table_names is from utils.r
 # # Done: clean the table names, roll back one month, rules,
@@ -77,24 +83,62 @@ table_names = table_names %>% clean_table_names() # clean_table_names is from ut
 ##################################################################################
 # First method using the custom function
 ##################################################################################
-# load a csv file to the database using custom function
-tictoc::tic()
-
-# data <- arrow::read_csv_arrow(file = file_path)
-# show the data structure
-# data %>% glimpse()
-
-# write to sql server
 
 
 
-load_csv_save_db(bcstats_con,
-                 file_path = csv_files[1],
-                 table_name = table_names[1])
-tictoc::toc()
 
-# 35.24 sec elapsed
 
+log_path <- file.path(test_csv_folder, "logfile.log")
+
+
+write_log(log_path, "Starting CSV to database import process")
+
+
+
+total_tic <- tic("Total processing time")
+
+for (file in files_to_process[1:2]) {
+  # table_name <- tools::file_path_sans_ext(basename(file))
+  table_name <- basename(file ) %>% str_remove(".csv|.zip") %>% clean_table_names()
+  write_log(log_path, paste("Processing file:", file))
+
+  print(paste("Processing file:", file))
+  file_tic <- tic(paste("Processing", file))
+  tryCatch({
+    load_csv_save_db(bcstats_con, file, table_name, log_path)
+  }, error = function(e) {
+    write_log(log_path, paste("Error processing file", file, ":", e$message))
+  })
+  file_toc <- toc(log = TRUE, quiet = TRUE)
+  write_log(log_path, paste("Total time for", file, ":", round(file_toc$toc - file_toc$tic, 2), "seconds"))
+}
+
+total_toc <- toc(log = TRUE, quiet = TRUE)
+write_log(log_path, paste("Total processing time:", round(total_toc$toc - total_toc$tic, 2), "seconds"))
+
+DBI::dbDisconnect(bcstats_con)
+write_log(log_path, "Finished CSV to database import process")
+
+
+##################################################################################
+# Test reading tables
+##################################################################################
+
+test_tab1 <- tbl(bcstats_con, "tab_98_401_X2021025_English_CSV_data_utf8")
+test_tab1 %>% head(5) %>% collect()
+
+test_tab1_df <- test_tab1 %>%
+  head(654) %>%
+  collect()
+
+# even in R, types={'GEO_NAME': 'VARCHAR', 'CHARACTERISTIC_NAME': 'VARCHAR'} are not executed
+# Partial Specification
+table_data<- read_csv_arrow(files_to_process[1], as_data_frame = F,
+                            col_types =schema(GEO_NAME = string(), CHARACTERISTIC_NAME = string()) )
+
+table_data_df = table_data %>%
+  head(654) %>%
+  collect()
 
 ##################################################################################
 # If there is an error: Error: FATAL Error: Failed to create checkpoint because of error: INTERNAL Error: Unsupported compression function type
@@ -106,14 +150,14 @@ tictoc::toc()
 
 
 ##################################################################################
-# Second method using the custom function
+# Second method using the duckdb_read_csv function
+# pro: efficient, can handle duplicated column names automatically
 ##################################################################################
-# second solution is using duckdb_read_csv function
 tictoc::tic()
 duckdb::duckdb_read_csv(
   conn = bcstats_con,
   name = table_names[2],       # Name of the table to create
-  files = csv_files[2],  # Path to the CSV file
+  files = files_to_process[2],  # Path to the CSV file
   header = TRUE,           # Whether the CSV file has a header row
   delim = ",",             # Delimiter used in the CSV file
   quote = "\"",            # Quote character used in the CSV file
@@ -196,89 +240,8 @@ BC_Stat_CLR_EXT_20230525 %>%
 
 
 
-
 # do not forget to disconnect from the database
 duckdb_shutdown(drv)
 dbDisconnect(bcstats_con, shutdown = TRUE)
 
-
-
-# or use dbplyr to query the table
-# BC_Stat_Population_Estimates_20240527 <- tbl(bcstats_con, "BC_Stat_Population_Estimates_20240527")
-#
-# BC_Stat_Population_Estimates_20240527 %>%
-#   select(POSTAL_CODE) %>%
-#   head()
-#
-# BC_Stat_Population_Estimates_20240527 %>%
-#   glimpse()
-#
-# # or use dplyr to filter the data
-# BC_Stat_Population_Estimates_20240527 %>%
-#   filter(LHA == "Vancouver Coastal Health") %>%
-#   glimpse()
-# all dplyr verbs are supported.
-
-
-
-#
-#
-# ##################################################################################
-# # Using duckdb to join data
-# ##################################################################################
-#
-#
-#
-# BC_Stat_Population_Estimates_20240527 = open_dataset(paste0(test_csv_folder, "/BC_Stat_Population_Estimates_20240527"))
-#
-# BC_Stat_CLR_EXT_20230525 = open_dataset(paste0(test_csv_folder, "/BC_Stat_CLR_EXT_20230525"))
-#
-# BC_Stat_Population_Estimates_20240527 %>%
-#   glimpse()
-#
-# BC_Stat_CLR_EXT_20230525 %>%
-#   glimpse()
-
-##################################################################################
-# Test loading a big file to duckdb
-# The following code is to test the performance of loading a big file to duckdb
-##################################################################################
-# write to arrow dataset
-# tictoc::tic()
-# write_dataset(dataset =  data %>% group_by(LHA),
-#               path = paste0(test_csv_folder, "/BC_Stat_Population_Estimates_20240527"),
-#               format = "parquet"
-# )
-# tictoc::toc()
-# # 6.2 sec elapsed
-#
-#
-# ##################################################################################
-# # Test loading a big file to duckdb
-# ##################################################################################
-# # write to arrow dataset
-# tictoc::tic()
-# write_dataset(dataset =  data %>% group_by(LHA),
-#               path = paste0(test_csv_folder, "/BC_Stat_CLR_EXT_20230525"),
-#               format = "parquet"
-# )
-# tictoc::toc()
-# # 3.08 sec elapsed
-#
-#
-#
-# ##################################################################################
-# # Using duckdb to join data
-# ##################################################################################
-#
-#
-#
-# BC_Stat_Population_Estimates_20240527 = open_dataset(paste0(test_csv_folder, "/BC_Stat_Population_Estimates_20240527"))
-#
-# BC_Stat_CLR_EXT_20230525 = open_dataset(paste0(test_csv_folder, "/BC_Stat_CLR_EXT_20230525"))
-#
-# BC_Stat_Population_Estimates_20240527 %>%
-#   glimpse()
-#
-# BC_Stat_CLR_EXT_20230525 %>%
-#   glimpse()
+# more tests are in '03_analysis.R'

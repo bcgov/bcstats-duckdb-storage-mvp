@@ -27,23 +27,23 @@ test_csv_folder = config::get("test_sql_server_csv")
 
 # List all CSV files in the test folder
 # This will return a character vector of file paths
-csv_files = list.files(
+files_to_process  = list.files(
   file.path(test_csv_folder, "raw_data"),
-  pattern = "*.csv",
+  pattern = "*.csv|*.zip",
   full.names = TRUE)
 
 # Print the number of CSV files found
-cat("Number of CSV files found:", length(csv_files), "\n")
+cat("Number of CSV files found:", length(files_to_process ), "\n")
 
 # Print the first file path (if any files were found)
-if (length(csv_files) > 0) {
-  cat("First CSV file:", csv_files[1], "\n")
+if (length(files_to_process ) > 0) {
+  cat("First CSV file:", files_to_process [1], "\n")
 } else {
   cat("No CSV files found in the specified folder.\n")
 }
 
 # retrieve the file name from the file path, which is the table name
-table_names = basename(csv_files) %>% str_remove(".csv")
+table_names = basename(files_to_process ) %>% str_remove(".csv")
 # some table names are not valid in database, we need to change them
 table_names = table_names %>% clean_table_names() # clean_table_names is from utils.r
 # # Done: clean the table names, roll back one month, rules,
@@ -54,7 +54,7 @@ table_names = table_names %>% clean_table_names() # clean_table_names is from ut
 ##################################################################################
 
 # Connect to SQL Server
-con <-dbConnect(odbc::odbc(),
+ms_sql_con <-dbConnect(odbc::odbc(),
                 Driver = config::get("Driver"),
                 Server = config::get("Server"),
                 Database = config::get("Database"),
@@ -62,11 +62,11 @@ con <-dbConnect(odbc::odbc(),
 )
 
 # Build a vector of table names: tables
-tables <- dbListTables(con)
+tables <- dbListTables(ms_sql_con)
 
 
 # tables have the all table names
-dbGetInfo(con)
+dbGetInfo(ms_sql_con)
 # Get DBMS metadata
 
 # following are the functions to execute a query on a given database connection
@@ -96,9 +96,76 @@ dbGetInfo(con)
 source(file = "./utils/utils.r")
 
 
+# why it works outside the function?
+table_data = read_csv_arrow(files_to_process[12])
+
+nanoarrow_stream <- nanoarrow::as_nanoarrow_array_stream(table_data)
+
+table_name = "GCS_202406"
+if (DBI::dbExistsTable(ms_sql_con, table_name)) {
+  # write_log(log_path, paste("Dropping existing table:", table_name))
+  DBI::dbRemoveTable(ms_sql_con, table_name)
+}
+
+tic("Writing to database")
+
+DBI::dbWriteTableArrow(
+  ms_sql_con,
+  name = table_name,
+  nanoarrow_stream,
+  overwrite = TRUE
+)
+
+# this one simple table works, and other tables work in duckdb, but do not work in ms sql server. And error messages were not clear.
+# errors are similar to Bret's error
+#
+# [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionWrite (send()).
+# [Microsoft][ODBC SQL Server Driver][DBNETLIB]General network error. Check your network documentation.
+
+##################################################################################
+# Test loading all big files in raw_data folder to MS sql server
+##################################################################################
+
+
+log_path <- file.path(test_csv_folder, "logfile_ms_sql.log")
+
+
+write_log(log_path, "Starting CSV to database import process")
+
+
+
+total_tic <- tic("Total processing time")
+
+for (file in files_to_process[3:12]) {
+  # table_name <- tools::file_path_sans_ext(basename(file))
+  table_name <- basename(file ) %>% str_remove(".csv|.zip") %>% clean_table_names()
+  write_log(log_path, paste("Processing file:", file))
+
+  print(paste("Processing file:", file))
+  file_tic <- tic(paste("Processing", file))
+  tryCatch({
+    load_csv_save_db(ms_sql_con, file, table_name, log_path)
+  }, error = function(e) {
+    write_log(log_path, paste("Error processing file", file, ":", e$message))
+  })
+  file_toc <- toc(log = TRUE, quiet = TRUE)
+  write_log(log_path, paste("Total time for", file, ":", round(file_toc$toc - file_toc$tic, 2), "seconds"))
+}
+
+total_toc <- toc(log = TRUE, quiet = TRUE)
+write_log(log_path, paste("Total processing time:", round(total_toc$toc - total_toc$tic, 2), "seconds"))
+
+DBI::dbDisconnect(ms_sql_con)
+write_log(log_path, "Finished CSV to database import process")
+
+
+############################################################################################
+
+
+
 # as long as we know the csv file path, we can load them in arrow and save arrow object to sql server.
 load_csv_save_db(con,
-                 file_path = csv_files[2],
+                 file_path = files_to_process [2],
                  table_name = table_names[2])
 
 
@@ -114,7 +181,7 @@ con <-dbConnect(odbc::odbc(),
 )
 # 412.19 sec elapsed
 load_csv_save_db(con,
-                 file_path = csv_files[3],
+                 file_path = files_to_process [3],
                  table_name = table_names[3])
 
 
@@ -259,6 +326,10 @@ order by b.FY_LHA
 
 ;
 "
+
+
+
+
 # Notes:
 
 # Based on the search results, using `nanoarrow::as_nanoarrow_array_stream(data)` with `dbWriteTableArrow()` is generally preferred over directly using `dbWriteTable()` for a few key reasons:

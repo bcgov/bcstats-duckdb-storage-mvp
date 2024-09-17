@@ -19,6 +19,17 @@ pacman::p_load(odbc, tidyverse, config, DBI, dbplyr,nanoarrow, arrow, duckdb)
 
 
 
+
+
+# Logging function
+write_log <- function(log_path, message) {
+  timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+  log_entry <- paste0(timestamp, " - ", message, "\n")
+  cat(log_entry, file = log_path, append = TRUE)
+}
+
+
+
 # define a function to load a csv file and save to a database
 
 
@@ -72,62 +83,71 @@ pacman::p_load(odbc, tidyverse, config, DBI, dbplyr,nanoarrow, arrow, duckdb)
 #'
 #' @export
 #'
-load_csv_save_db <- function(con, file_path, table_name) {
-  library(arrow)
-  library(DBI)
-  library(nanoarrow)
-  library(tidyverse)
+library(arrow)
+library(DBI)
+library(nanoarrow)
+library(tictoc)
+library(dplyr)
 
-  # Check if the file is zipped
-  is_zipped <- grepl("\\.zip$", file_path, ignore.case = TRUE)
+load_csv_save_db <- function(con, file_path, table_name, log_path) {
+  tryCatch({
+    write_log(log_path, paste("Starting to process file:", file_path))
 
-  tictoc::tic()
-  if (is_zipped) {
-    # Extract the CSV file name from the zip (assuming there's only one CSV)
-    zip_contents <- unzip(file_path, list = TRUE)
-    csv_file_name <- zip_contents$Name[grepl("\\.csv$", zip_contents$Name, ignore.case = TRUE)][1]
+    tic("Reading CSV")
 
-    # Use Arrow to read the zipped CSV
-    print("Reading CSV file from ZIP file...")
-    data <- arrow::read_csv_arrow(unz(file_path, csv_file_name))
-  } else {
-    # Use Arrow to read the CSV directly
-    print("Reading CSV file directly... ")
-    data <- arrow::read_csv_arrow(file_path)
-  }
-  tictoc::toc()
+    is_zipped <- grepl("\\.zip$", file_path, ignore.case = TRUE)
+    if (is_zipped) {
+      zip_contents <- unzip(file_path, list = TRUE)
+      csv_file_name <- zip_contents$Name[grepl("\\.csv$", zip_contents$Name, ignore.case = TRUE)][1]
+      data <- arrow::read_csv_arrow(unz(file_path, csv_file_name))
+    } else {
+      data <- arrow::read_csv_arrow(file_path)
+    }
 
-  # Convert Arrow Table to nanoarrow array stream
-  nanoarrow_stream <- nanoarrow::as_nanoarrow_array_stream(data)
+    read_time <- toc(log = TRUE, quiet = TRUE)
+    write_log(log_path, paste("CSV reading time:", round(read_time$toc - read_time$tic, 2), "seconds"))
 
-  # This function converts the Arrow Table to a nanoarrow array stream, which is optimized for efficient, chunk-wise data transfer to the database.
-  # Using nanoarrow allows for better performance when writing large datasets, as it can stream the data in chunks rather than loading everything into memory at once.
-  # It's particularly useful when working with Arrow objects, as it provides a seamless integration between Arrow and database writing operations.
+    # Check for duplicate column names
+    original_names <- names(data)
+    duplicate_cols <- original_names[duplicated(original_names)]
 
-  # Check if the table exists
-  if (DBI::dbExistsTable(con, table_name)) {
-    # If it exists, drop the table
-    DBI::dbRemoveTable(con, table_name)
-    message(paste("Existing table", table_name, "has been dropped and will be replaced."))
-  }
+    if (length(duplicate_cols) > 0) {
+      write_log(log_path, paste("Warning: Duplicate column names found:", paste(duplicate_cols, collapse = ", ")))
 
-  # Write to database using DBI and nanoarrow
-  tictoc::tic()
-  print("Write to database using DBI and nanoarrow...")
-  DBI::dbWriteTableArrow(
-    con,
-    name = table_name,
-    nanoarrow_stream,
-    overwrite = TRUE  # This ensures the table is overwritten if it somehow still exists
-  )
-  tictoc::toc()
+      # Rename duplicate columns
+      new_names <- make.unique(original_names, sep = "_")
+      data <- data %>% setNames(new_names)
 
-  # Optionally, you can add a message to indicate which method was used
-  if (is_zipped) {
-    message("Used Arrow to read zipped CSV")
-  } else {
-    message("Used Arrow to read CSV directly")
-  }
+      write_log(log_path, "Renamed duplicate columns")
+    }
+
+    write_log(log_path, paste("Converting data to nanoarrow stream for table:", table_name))
+    nanoarrow_stream <- nanoarrow::as_nanoarrow_array_stream(data)
+
+    if (DBI::dbExistsTable(con, table_name)) {
+      write_log(log_path, paste("Dropping existing table:", table_name))
+      DBI::dbRemoveTable(con, table_name)
+    }
+
+    tic("Writing to database")
+
+    DBI::dbWriteTableArrow(
+      con,
+      name = table_name,
+      nanoarrow_stream,
+      overwrite = TRUE
+    )
+
+    write_time <- toc(log = TRUE, quiet = TRUE)
+    write_log(log_path, paste("Database writing time:", round(write_time$toc - write_time$tic, 2), "seconds"))
+
+    write_log(log_path, paste("Successfully wrote data to table:", table_name))
+
+  }, error = function(e) {
+    error_message <- paste("Error in load_csv_save_db for file", file_path, ":", e$message)
+    write_log(log_path, error_message)
+    stop(error_message)
+  })
 }
 
 

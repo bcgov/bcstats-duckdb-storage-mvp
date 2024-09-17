@@ -22,7 +22,7 @@ source(file = "./utils/utils.r")
 
 
 # create / connect to database file in another way
-drv <- duckdb(dbdir = file.path(test_csv_folder, "bcstats_db.duckdb"),
+drv <- duckdb(dbdir = file.path(test_csv_folder, "db/bcstats_db.duckdb"),
               read_only = TRUE) # Only read table not write data.
 bcstats_read_con <- dbConnect(drv)
 
@@ -167,14 +167,14 @@ order by b.FY_LHA
 
 # Use dbGetQuery() for simple queries or dbSendQuery() followed by dbFetch() for more control over large result sets.
 tictoc::tic()
-result <- dbGetQuery(con, sql_query)
+result <- dbGetQuery(bcstats_read_con, sql_query)
 tictoc::toc()
 # 5.61 sec elapsed
 result %>% glimpse()
 
 # or
 tictoc::tic()
-result <- dbSendQuery(con, sql_query)
+result <- dbSendQuery(bcstats_read_con, sql_query)
 data <- dbFetch(result)
 dbClearResult(result)
 tictoc::toc()
@@ -278,6 +278,10 @@ join first_pop d on d.SY_LHA = a.SY_LHA
 order by b.FY_LHA
 )"
 
+
+
+
+# second method
 # Keep SQL queries in separate .sql files and read them in:
 
 
@@ -304,3 +308,86 @@ sql_query <- sqlInterpolate(con, sql_template,
 # do not forget to disconnect from the database
 duckdb_shutdown(drv)
 dbDisconnect(bcstats_con, shutdown = TRUE)
+
+
+
+
+# or use dbplyr to query the table
+# BC_Stat_Population_Estimates_20240527 <- tbl(bcstats_con, "BC_Stat_Population_Estimates_20240527")
+#
+# BC_Stat_Population_Estimates_20240527 %>%
+#   select(POSTAL_CODE) %>%
+#   head()
+#
+# BC_Stat_Population_Estimates_20240527 %>%
+#   glimpse()
+#
+# # or use dplyr to filter the data
+# BC_Stat_Population_Estimates_20240527 %>%
+#   filter(LHA == "Vancouver Coastal Health") %>%
+#   glimpse()
+# all dplyr verbs are supported.
+
+
+
+#
+#
+# ##################################################################################
+# # Using duckdb to join data
+# ##################################################################################
+#
+#
+#
+# BC_Stat_Population_Estimates_20240527 = open_dataset(paste0(test_csv_folder, "/BC_Stat_Population_Estimates_20240527"))
+#
+# BC_Stat_CLR_EXT_20230525 = open_dataset(paste0(test_csv_folder, "/BC_Stat_CLR_EXT_20230525"))
+#
+# BC_Stat_Population_Estimates_20240527 %>%
+#   glimpse()
+#
+# BC_Stat_CLR_EXT_20230525 %>%
+#   glimpse()
+
+##################################################################################
+# Test loading a big file to duckdb
+# The following code is to test the performance of loading a big file to duckdb
+##################################################################################
+# write to arrow dataset
+# tictoc::tic()
+# write_dataset(dataset =  data %>% group_by(LHA),
+#               path = paste0(test_csv_folder, "/BC_Stat_Population_Estimates_20240527"),
+#               format = "parquet"
+# )
+# tictoc::toc()
+# # 6.2 sec elapsed
+#
+#
+# ##################################################################################
+# # Test loading a big file to duckdb
+# ##################################################################################
+# # write to arrow dataset
+# tictoc::tic()
+# write_dataset(dataset =  data %>% group_by(LHA),
+#               path = paste0(test_csv_folder, "/BC_Stat_CLR_EXT_20230525"),
+#               format = "parquet"
+# )
+# tictoc::toc()
+# # 3.08 sec elapsed
+#
+#
+#
+# ##################################################################################
+# # Using duckdb to join data
+# ##################################################################################
+#
+#
+#
+# BC_Stat_Population_Estimates_20240527 = open_dataset(paste0(test_csv_folder, "/BC_Stat_Population_Estimates_20240527"))
+#
+# BC_Stat_CLR_EXT_20230525 = open_dataset(paste0(test_csv_folder, "/BC_Stat_CLR_EXT_20230525"))
+#
+# BC_Stat_Population_Estimates_20240527 %>%
+#   glimpse()
+#
+# BC_Stat_CLR_EXT_20230525 %>%
+#   glimpse()
