@@ -33,6 +33,16 @@ dbListTables(bcstats_read_con)
 dbListFields(bcstats_read_con, "BC_Stat_Population_Estimates_20240827")
 
 dbListFields(bcstats_read_con, "BC_Stat_CLR_EXT_20230525")
+######################################################################################
+# Read data table: method 1. dbplyr
+########################################################################################
+
+tab_98_401_X2021006_English_CSV_data_BritishColumbia_db = tbl(bcstats_read_con, "tab_98_401_X2021006_English_CSV_data_BritishColumbia_utf8")
+
+
+tab_98_401_X2021006_English_CSV_data_BritishColumbia_db %>%
+  head(4) %>%
+  collect()
 
 ######################################################################################
 # Read data table: method 2. use SQL query directly
@@ -291,14 +301,17 @@ data <- dbFetch(result)
 dbClearResult(result)
 tictoc::toc()
 
+######################################################################################
+# Read data table: method 3. read SQL files and query in R
+########################################################################################
 
 # second method
 # Keep SQL queries in separate .sql files and read them in:
 
 
 # tbl(src = bcstats_read_con, sql())
-sql_query <- readLines("test_sql.sql") %>% paste(collapse = "\n")
-sql_query <- read_file("test_sql.sql")
+sql_query <- readLines("test_sql.sql") %>% paste(collapse = "\n") %>% glue::glue_sql_collapse()
+sql_query <- read_file("test_sql.sql")%>% glue::glue_sql_collapse()
 
 tictoc::tic()
 result <- dbGetQuery(bcstats_read_con, sql_query)
@@ -314,6 +327,12 @@ result <- dbSendQuery(bcstats_read_con, sql_query)
 data <- dbFetch(result)
 dbClearResult(result)
 tictoc::toc()
+
+
+
+######################################################################################
+# Read data table: method 4. parameterized query
+########################################################################################
 
 
 # For dynamic queries, use parameterized queries with sqlInterpolate() to prevent SQL injection.
@@ -334,7 +353,7 @@ sql_query <- sqlInterpolate(con, sql_template,
 
 # do not forget to disconnect from the database
 duckdb_shutdown(drv)
-dbDisconnect(bcstats_con, shutdown = TRUE)
+dbDisconnect(bcstats_read_con, shutdown = TRUE)
 
 
 
