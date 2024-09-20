@@ -1,0 +1,13 @@
+name: CI
+on:
+  pull_request:
+jobs:
+  dbt_test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+      - name: Install dependencies
+        run: pip install dbt-duckdb
+      - name: Run dbt
+        run: dbt run --profiles-dir .
