@@ -1,7 +1,7 @@
 # this little script shows that reading information into a database is fraught with error and complexity!
 
 
-csv = 'C:/Users/thister/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data/98-401-X2021006_English_CSV_data_BritishColumbia-utf8.csv'
+csv = 'C:/Users/jduan/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data/98-401-X2021006_English_CSV_data_BritishColumbia-utf8.csv'
 
 db <- duckdb::dbConnect(duckdb::duckdb())
 
@@ -36,7 +36,7 @@ dplyr::tbl(db, "mytable") |>
 
 pacman::p_load(tictoc, tidyverse)
 
-csvs = fs::dir_ls("C:/Users/thister/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data", regexp = "csv$") |>
+csvs = fs::dir_ls("C:/Users/jduan/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data", regexp = "csv$") |>
   head(5)
 
 exprs_dplyr = list(
@@ -59,8 +59,8 @@ exprs_dplyr = list(
          arrange(desc(n))
   ),
   expr(df |>
-         group_by(tax_year) |>
-         summarise(mean = mean(median_income))
+         group_by(CMA) |>
+         summarise(mean = mean(CONDO))
   )
 )
 
@@ -89,8 +89,8 @@ exprs_duck = list(
   ),
   expr(df |>
          duckplyr::as_duckplyr_tibble() |>
-         group_by(tax_year) |>
-         summarise(mean = mean(median_income))
+         group_by(CMA) |>
+         summarise(mean = mean(CONDO))
   )
 )
 
@@ -117,14 +117,14 @@ exprs_duck_db = list(
          arrange(desc(n))
   ),
   expr(tbl(db_con, "t5") |>
-         group_by(tax_year) |>
-         summarise(mean = mean(median_income))
+         group_by(CMA) |>
+         summarise(mean = mean(CONDO))
   )
 )
 
 db_con <- duckdb::dbConnect(duckdb::duckdb())
 
-n_trials = 5 # adjust this as you like
+n_trials = 2 # adjust this as you like
 results = tibble()
 
 for (n in 1:n_trials) {
@@ -185,6 +185,12 @@ for (n in 1:n_trials) {
   interim_results = mutate(interim_results, n = n, .before=1)
   results = bind_rows(results, interim_results)
 }
+
+
+
+# Show how many tables in database
+dbListTables(db_con)
+
 
 saveRDS(results, "results.Rds")
 
