@@ -30,7 +30,12 @@ clean-targets:         # directories to be removed by `dbt clean`
 # directory as views. These settings can be overridden in the individual model
 # files using the `{{ config(...) }}` macro.
 models:
-  # sei_dbt:
+  sei_dbt:
     # Config indicated by + and applies to all files under models/staging/
-  staging:
-      +materialized:  ephemeral  # Use ephemeral materialization for staging in production
+    staging:
+        +materialized:  table  # Use table materialization for staging in other env
+  prod:
+    models:
+      sei_dbt:
+      staging:
+        +materialized:  ephemeral  # Use ephemeral materialization for staging in production
