@@ -20,9 +20,13 @@ pacman::p_load(odbc, tidyverse, config, DBI, dbplyr,nanoarrow, arrow, duckdb)
 # import functions from utils.r
 source(file = "./utils/utils.r")
 
+# Define the path to the test CSV folder
+# This path is retrieved from the configuration file
+test_csv_folder = config::get("test_sql_server_csv")
+
 
 # create / connect to database file in another way
-drv <- duckdb(dbdir = file.path(test_csv_folder, "db/bcstats_db.duckdb"),
+drv <- duckdb(dbdir = file.path(test_csv_folder, "db/bcstats_db_dev.duckdb"),
               read_only = TRUE) # Only read table not write data.
 bcstats_read_con <- dbConnect(drv)
 
@@ -30,7 +34,7 @@ bcstats_read_con <- dbConnect(drv)
 dbListTables(bcstats_read_con)
 # many tables.
 # list columns/fields in one table
-dbListFields(bcstats_read_con, "BC_Stat_Population_Estimates_20240827")
+dbListFields(bcstats_read_con, "fin_neighborhood_incomes")
 
 dbListFields(bcstats_read_con, "BC_Stat_CLR_EXT_20230525")
 ######################################################################################
