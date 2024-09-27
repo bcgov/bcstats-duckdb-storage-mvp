@@ -1,7 +1,7 @@
 -- models/staging/stg_statscan_census1.sql
 {{ config(materialized='table') }}
 
-    SELECT
+    SELECT 
         -- Convert ASCII columns to UTF-8 here
         CAST(GEO_NAME AS VARCHAR) AS GEO_NAME,
         CAST(CHARACTERISTIC_NAME AS VARCHAR) AS CHARACTERISTIC_NAME,
@@ -23,6 +23,6 @@
         CAST("C11_RATE_MEN+" AS FLOAT8 ) AS C11_RATE_MEN,
         CAST("C12_RATE_WOMEN+" AS FLOAT8 ) AS C12_RATE_WOMEN
 
-    FROM read_csv_auto("C:/Users/JDUAN/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data/98-401-X2021025_English_CSV_data-utf8.csv")
+    FROM {{ source('external_source', 'table_98_401_X2021025_English_CSV_data') }}
 
 

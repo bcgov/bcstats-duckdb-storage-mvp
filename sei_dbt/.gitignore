@@ -2,7 +2,3 @@
 target/
 dbt_packages/
 logs/
-*.duckdb
-*_readme.md
-*.db
-dbt_project.yml

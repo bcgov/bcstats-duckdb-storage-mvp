@@ -20,57 +20,19 @@ pacman::p_load(odbc, tidyverse, config, DBI, dbplyr,nanoarrow, arrow, duckdb)
 # import functions from utils.r
 source(file = "./utils/utils.r")
 
-# Define the path to the test CSV folder
-# This path is retrieved from the configuration file
-test_csv_folder = config::get("test_sql_server_csv")
-
-# Load the DuckDB package
-library(duckdb)
-
-# Connect to the DuckDB database
-con <- dbConnect(duckdb::duckdb(),file.path(test_csv_folder, "db/bcstats_db_prod.duckdb"))
-
-# Fetch the list of tables with 'stg%' prefix
-stg_tables <- dbGetQuery(con, "
-    SELECT table_name
-    FROM information_schema.tables
-    WHERE table_name LIKE 'stg%'
-")
-
-# Iterate over the result and drop each table
-for (table_name in stg_tables$table_name) {
-  drop_sql <- paste0("DROP TABLE IF EXISTS ", table_name, ";")
-  print(paste("Executing:", drop_sql))
-  dbExecute(con, drop_sql)  # Execute the drop statement
-}
-
-# Disconnect from the DuckDB database
-dbDisconnect(con, shutdown = TRUE)
-
-#####################################################################
 
 # create / connect to database file in another way
-drv <- duckdb(dbdir = file.path(test_csv_folder, "db/bcstats_db_prod.duckdb"),
+drv <- duckdb(dbdir = file.path(test_csv_folder, "db/bcstats_db.duckdb"),
               read_only = TRUE) # Only read table not write data.
 bcstats_read_con <- dbConnect(drv)
-
-
-
 
 # Show how many tables in database
 dbListTables(bcstats_read_con)
 # many tables.
 # list columns/fields in one table
-dbListFields(bcstats_read_con, "fin_neighborhood_incomes")
+dbListFields(bcstats_read_con, "BC_Stat_Population_Estimates_20240827")
 
 dbListFields(bcstats_read_con, "BC_Stat_CLR_EXT_20230525")
-
-
-
-
-
-
-
 ######################################################################################
 # Read data table: method 1. dbplyr
 ########################################################################################
