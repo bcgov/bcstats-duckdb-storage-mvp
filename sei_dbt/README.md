@@ -1,4 +1,181 @@
-Welcome to your new dbt project!
+## Overview of dbt-duckdb
+
+This project is designed to load multiple CSV files into a DuckDB database using **dbt** (Data Build Tool). It helps automate the process of transforming, modeling, and querying data from CSV files in a simple and efficient way. DuckDB is used as the local database engine, and dbt orchestrates the loading and transformation process.
+
+
+
+## Features
+
+
+=======
+- **Automated CSV Loading:** Easily load multiple CSV files into DuckDB.
+- **Data Transformation:** Use dbt to perform SQL-based data transformations on the loaded CSVs.
+- **Lightweight Database:** Leverages DuckDB, which is optimized for efficient data processing on local files.
+- **Flexible:** Customize dbt models to suit your business logic and transformation requirements.
+
+---
+
+## Requirements
+
+Since we use `dbt-duckdb` Python package, before starting, ensure you have the following tools installed:
+
+
+1. **Python** (>= 3.7)
+2. **dbt** (>= 0.19.0)
+3. **DuckDB** (Python package or standalone)
+4. **CSV Files:** Ensure you have your source CSV files ready.
+
+
+To install the required Python packages:
+
+```bash
+pip install dbt-duckdb duckdb
+```
+
+More instructions are available in https://github.com/mehd-io/dbt-duckdb-tutorial/
+
+---
+
+## Setup
+
+Follow these steps to set up and configure the project:
+
+1. **Clone the repository:**
+
+   ```bash
+   git clone <your-repository-url>
+   cd <project-folder>
+   ```
+
+2. **Initiate a new projec:**
+
+If you start a new project, 
+
+```bash
+dbt init
+```
+It will:
+
+    ask you to name your project
+    ask you which database adapter you're using (or to Supported Data Platforms)
+    prompt you for each piece of information that dbt needs to connect to that database: things like account, user, password, etc
+
+Then, it will:
+
+    Create a new folder with your project name and sample files, enough to get you started with dbt
+    Create a connection profile on your local machine. The default location is ~/.dbt/profiles.yml.
+
+
+3. **Configure dbt profiles:**
+
+   dbt uses a `profiles.yml` file to connect to DuckDB. Ensure that your `profiles.yml` file is correctly configured as follows:
+
+   ```yaml
+   duckdb_project:
+     target: dev
+     outputs:
+       dev:
+         type: duckdb
+         path: "path/to/your/database.db"  # Path to your DuckDB database file
+         extensions: ['parquet', 'json']   # Optional extensions to load, if needed
+            duckdb_project:
+
+       test:
+         type: duckdb
+         path: "test.db"  # Test database path
+         
+       prod:
+         type: duckdb
+         path: "prod.db"  # Production database path
+   ```
+
+4. **Set up the directory structure:**
+
+   Your dbt project should follow this structure:
+
+   ```
+   .
+   ├── models
+   │   ├── staging
+   │   │   └── csv_imports.sql  # SQL to define CSV imports
+   │   ├── transforms.sql       # SQL transformation models
+   |   ├── source.yml  
+   ├── data
+   │   └── source.csv           # Place your CSV files here
+   ├── dbt_project.yml          # dbt project configuration
+   └── README.md                # This file
+   ```
+
+---
+
+
+## Usage
+
+### Loading CSV Files
+
+1. **Prepare your CSV files:**
+   - Place the source CSV files inside the `data/` directory.
+
+2. **Create staging models:**
+   - In the `models/staging` folder, create a model (SQL file) that defines how each CSV should be loaded into DuckDB.
+
+   Example SQL to load a CSV:
+
+   ```sql
+   {{ config(materialized='table') }}
+
+   select * 
+   from read_csv_auto('data/source.csv');
+   ```
+
+3. **Run dbt to load and transform data:**
+
+   Once your staging models are ready, run dbt to load the CSVs into DuckDB:
+
+   ```bash
+   dbt run
+   ```
+
+4. **Query the data:**
+
+   After running dbt, you can query your data directly using DuckDB or through dbt models.
+
+   Example:
+
+   ```sql
+   select * from staging.source_csv;
+   ```
+
+---
+
+## Example
+
+Here is an example walkthrough:
+
+1. Place a CSV file, `sales_data.csv`, in the `data/` folder.
+2. Create a corresponding SQL file, `sales_data.sql`, in the `models/staging/` folder:
+
+   ```sql
+   {{ config(materialized='table') }}
+
+   select * 
+   from read_csv_auto('data/sales_data.csv');
+   ```
+
+3. Run dbt to load the data:
+
+   ```bash
+   dbt run
+   ```
+
+4. Query the loaded `sales_data` table:
+
+   ```sql
+   select * from staging.sales_data;
+   ```
+
+
+More instructions can be found from the documents in a dbt starter project:
 
 ### Using the starter project
 
@@ -8,7 +185,7 @@ Try running the following commands:
 
 1.	A dbt workflow has been established in “dbt”
     a.	The basic setup follows : https://github.com/mehd-io/dbt-duckdb-tutorial/tree/main and https://www.youtube.com/watch?v=asxGh2TrNyI
-        i.	This project use the dbt-duckdb adapter for DuckDB. You can install it by doing `pip install dbt-duckdb`. This include dbt, dbt-duckdb adapter and duckdb.
+        i.	This project use the dbt-duckdb adapter for DuckDB. You can install it by doing `pip install dbt-duckdb`. This include `dbt`, `dbt-duckdb adapter` and `duckdb`.
         ii.	Inside the dbt project /dbt,  run `dbt run`
         iii.	It will implement the models in “models” folder and create tables or output CSV files.
 
