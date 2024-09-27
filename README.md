@@ -31,6 +31,8 @@ This project is designed to load multiple CSV files into a DuckDB database using
 
 ## Features
 
+
+=======
 - **Automated CSV Loading:** Easily load multiple CSV files into DuckDB.
 - **Data Transformation:** Use dbt to perform SQL-based data transformations on the loaded CSVs.
 - **Lightweight Database:** Leverages DuckDB, which is optimized for efficient data processing on local files.
@@ -42,16 +44,19 @@ This project is designed to load multiple CSV files into a DuckDB database using
 
 Before starting, ensure you have the following tools installed:
 
+
 1. **Python** (>= 3.7)
 2. **dbt** (>= 0.19.0)
 3. **DuckDB** (Python package or standalone)
 4. **CSV Files:** Ensure you have your source CSV files ready.
+
 
 To install the required Python packages:
 
 ```bash
 pip install dbt-duckdb duckdb
 ```
+
 
 ---
 
