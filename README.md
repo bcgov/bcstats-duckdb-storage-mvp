@@ -27,22 +27,11 @@ Limitations: DuckDB is not designed for frequent CRUD (create, read, update, and
 
 ### Usage
 
-Describe data being used (links), and how to run. Eg:
 
-There are four core scripts that are required for the analysis, they need to be run in order:
-
--   01\_clean.R
--   02\_analysis.R
--   03\_visualize.R
--   04\_output.R
 
 #### Example
 
-This is a basic example which shows you how to solve a common problem:
 
-``` r
-## basic example code
-```
 
 ### Project Status
 
