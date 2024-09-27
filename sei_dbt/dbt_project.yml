@@ -22,6 +22,13 @@ clean-targets:         # directories to be removed by `dbt clean`
   - "target"
   - "dbt_packages"
 
+vars:
+  # The `csv_file_path` variable will be accessible in all resources
+  csv_file_path: '2016-06-01'
+  # The `db_file_path` variable is only accessible to resources in the sei_dbt project
+  sei_dbt:
+    db_file_path: 'web'
+
 
 # Configuring models
 # Full documentation: https://docs.getdbt.com/docs/configuring-models
