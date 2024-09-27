@@ -1,1 +1,108 @@
 version: 2
+
+models:
+  - name: fin_neighborhood_income
+    description: "A final neighborhood income table from ministry of finance"
+    columns:
+      - name: postal_code
+        description: "The unique ID for postal_code"
+        tests:
+          - unique    # Ensure that order_id is unique
+          - not_null  # Ensure that order_id is not null
+      - name: tax_year
+        description: "tax_year"
+        tests:
+          - not_null
+      - name: median_income
+        description: "median_income"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['positive']
+
+
+  - name: FCT_Health_client
+    description: "A final table for Patient demographic and location data with study and effective dates from Ministry of health for last year"
+    columns:
+      - name: STUDY_ID
+        description: "Unique identifier for each study"
+        tests:
+          - unique       # Ensure each STUDY_ID is unique
+          - not_null     # Ensure each STUDY_ID is not null
+
+      - name: BIRTH_YR_MON
+        description: "Patient's birth year and month in YYYY-MM format"
+        tests:
+          - not_null     # Ensure BIRTH_YR_MON is not null
+
+      - name: SEX
+        description: "Patient's biological sex (e.g., M, F, Other)"
+        tests:
+          - not_null     # Ensure SEX is not null
+          - accepted_values:
+              values: ['M', 'F', 'Other']  # Ensure SEX has valid values
+
+      - name: POSTAL_CODE
+        description: "Patient's postal code"
+        tests:
+          - not_null     # Ensure POSTAL_CODE is not null
+
+      - name: CITY
+        description: "Patient's city of residence"
+        tests:
+          - not_null     # Ensure CITY is not null
+
+      - name: STREET_LINE
+        description: "Patient's street address"
+        tests:
+          - not_null     # Ensure STREET_LINE is not null
+
+      - name: LHA
+        description: "Local Health Area"
+        tests:
+          - not_null     # Ensure LHA is not null
+
+      - name: CHSA
+        description: "Community Health Service Area"
+        tests:
+          - not_null     # Ensure CHSA is not null
+
+      - name: LATITUDE
+        description: "Geographical latitude coordinate"
+        tests:
+          - not_null     # Ensure LATITUDE is not null
+          # - relationships:
+          #     to: "{{ ref('other_table_with_geocoordinates') }}"
+          #     field: "LATITUDE"
+          #     type: foreign_key  # Optional, to check relationships with another table
+
+      - name: LONGITUDE
+        description: "Geographical longitude coordinate"
+        tests:
+          - not_null     # Ensure LONGITUDE is not null
+          # - relationships:
+          #     to: "{{ ref('other_table_with_geocoordinates') }}"
+          #     field: "LONGITUDE"
+          #     type: foreign_key  # Optional, to check relationships with another table
+
+      - name: EFF_DATE
+        description: "Effective date for the record"
+        tests:
+          - not_null     # Ensure EFF_DATE is not null
+          - accepted_values:
+              values: ["YYYY-MM-DD"]  # Ensure it's in valid date format
+
+      - name: END_DATE
+        description: "End date for the record (can be null if still active)"
+        tests:
+          - accepted_values:
+              values: ["YYYY-MM-DD", null]  # Allow for null if the study is ongoing
+
+
+tests:
+  - name: positive_total_amount
+    description: "Test that total_amount is always greater than 0"
+    sql: |
+      select count(*)
+      from {{ ref('fin_neighborhood_income') }}
+      where median_income >= 0
