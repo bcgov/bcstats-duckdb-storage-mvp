@@ -5,17 +5,16 @@ sources:
     tables:
       - name: fin_neighborhood_incomes_2021
         meta:
-          external_location: "C:/Users/JDUAN/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data/FIN - Neighborhood Incomes 2021.csv"
+          external_location: "raw_data/FIN - Neighborhood Incomes 2021.csv"
 
       - name: fin_neighborhood_incomes_2016_2020
         meta:
-          external_location: 'C:/Users/JDUAN/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data/FIN - Neighborhood Incomes 2016-2020.csv'
+          external_location: 'raw_data/FIN - Neighborhood Incomes 2016-2020.csv'
 
       - name: table_98_401_X2021025_English_CSV_data
         meta:
-          external_location: 'C:/Users/JDUAN/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data/98-401-X2021025_English_CSV_data-utf8.csv'
+          external_location: 'raw_data/98-401-X2021025_English_CSV_data-utf8.csv'
 
-      - name: table_98_401_X2021006_English_CSV_data_BritishColumbia 
+      - name: table_98_401_X2021006_English_CSV_data_BritishColumbia
         meta:
-          external_location: 'C:/Users/JDUAN/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data/98-401-X2021006_English_CSV_data_BritishColumbia-utf8.csv'
- 
+          external_location: 'raw_data/98-401-X2021006_English_CSV_data_BritishColumbia-utf8.csv'

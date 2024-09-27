@@ -6,7 +6,7 @@ Try running the following commands:
 - dbt run
 - dbt test
 
-1.	A dbt workflow has been established in “C:\Users\JDUAN\OneDrive - Government of BC\2024-025 Brett and Jon Database Test Warehouse\dbt”
+1.	A dbt workflow has been established in “dbt”
     a.	The basic setup follows : https://github.com/mehd-io/dbt-duckdb-tutorial/tree/main and https://www.youtube.com/watch?v=asxGh2TrNyI
         i.	This project use the dbt-duckdb adapter for DuckDB. You can install it by doing `pip install dbt-duckdb`. This include dbt, dbt-duckdb adapter and duckdb.
         ii.	Inside the dbt project /dbt,  run `dbt run`
