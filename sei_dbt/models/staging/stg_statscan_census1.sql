@@ -23,6 +23,6 @@
         CAST("C11_RATE_MEN+" AS FLOAT8 ) AS C11_RATE_MEN,
         CAST("C12_RATE_WOMEN+" AS FLOAT8 ) AS C12_RATE_WOMEN
 
-    FROM read_csv_auto("C:/Users/JDUAN/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data/98-401-X2021025_English_CSV_data-utf8.csv")
+    FROM read_csv_auto("raw_data/98-401-X2021025_English_CSV_data-utf8.csv")
 
 
