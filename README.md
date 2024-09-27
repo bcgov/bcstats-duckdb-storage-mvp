@@ -29,7 +29,7 @@ Limitations: DuckDB is not designed for frequent CRUD (create, read, update, and
 
 This project is designed to load multiple CSV files into a DuckDB database using **dbt** (Data Build Tool). It helps automate the process of transforming, modeling, and querying data from CSV files in a simple and efficient way. DuckDB is used as the local database engine, and dbt orchestrates the loading and transformation process.
 
-Previously, we implemented the data engineering part in R. For example, reading CSV files and writing to a DuckDB database etc. You can find the code in `01_load_duckdb_cli.sql`, `01_load_duckdb.r`, `01_load_sql_server.r`, and `01_load_sql_sqlite.r`. 
+Previously, we implemented the data engineering part in R. For example, reading CSV files and writing to a DuckDB database etc. You can find the code in `01_load_duckdb_cli.sql`, `01_load_duckdb.r`, `01_load_sql_server.r`, and `01_load_sql_sqlite.r`. The files in `utils` folder were used in these R files.  
 
 Now most of data engineering work is moved to `sei_dbt` folder. The instructions are available in `readme.md` in `sei_dbt` folder. 
 
