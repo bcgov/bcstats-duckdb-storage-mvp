@@ -4,7 +4,27 @@ author: "Tim H"
 format: html
 ---
 
+## Introduction
+
+The purpose of this document is to compare the speed of certain operations between `Duck DB` and its alternatives (such as `dplyr`) in R. The operations are:
+
+- loading .csv files into R objects
+- querying R dataframes using either `dbplyr` or `Duck DB` syntax
+
+We will use the [`tictoc`](https://cran.r-project.org/web/packages/tictoc/index.html) package to get speed timestamps.
+
+First, we load the packages
+
+```{r setup}
+pacman::p_load(tictoc, tidyverse, duckdb)
+db = duckdb::dbConnect(duckdb())
+
+db
+```
+
+
 ```{r}
+#| eval: false
 # this little script shows that reading information into a database is fraught with error and complexity!
 
 
@@ -41,7 +61,7 @@ dplyr::tbl(db, "mytable") |>
 
 # look at the interim_results tibble at the end to see the times.
 
-pacman::p_load(tictoc, tidyverse)
+
 
 csvs = fs::dir_ls("C:/Users/jduan/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data", regexp = "csv$") |>
   head(5)

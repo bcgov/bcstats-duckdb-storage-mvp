@@ -8,3 +8,5 @@ config.yml
 *.csv
 *.docx
 docs
+05_speed_test_comparison_dplyr_duckdb_files
+05_speed_test_comparison_dplyr_duckdb.html
