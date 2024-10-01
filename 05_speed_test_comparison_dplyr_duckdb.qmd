@@ -1,71 +1,234 @@
 ---
-title: "Duck DB and dplyr Speed Comparison Test"
+title: "Duck DB, duckplyr and dplyr Speed Comparison Tests"
 author: "Tim H"
+date: today
 format: html
+toc: true
+params:
+  n_trials: 2
+  nrow_check: 500
+  nrow_by: 500
+  run_boolean_problem: no
+editor_options: 
+  chunk_output_type: console
 ---
 
 ## Introduction
 
-The purpose of this document is to compare the speed of certain operations between `Duck DB` and its alternatives (such as `dplyr`) in R. The operations are:
+The purpose of this document is to compare the speed of certain operations between `Duck DB`, `duckplyr` and `dplyr` in R. The operations are:
 
-- loading .csv files into R objects
-- querying R dataframes using either `dbplyr` or `Duck DB` syntax
+- loading .csv files as standalone R data frames or into a Duck DB database,
+- querying either R data frames using `dbplyr` or `duckplyr` syntax, or querying Duck DB databases.
 
 We will use the [`tictoc`](https://cran.r-project.org/web/packages/tictoc/index.html) package to get speed timestamps.
 
-First, we load the packages
+First, we load the packages and establish the duck DB database. (Note that we don't load `duckplyr` directly in order to avoid overwriting `dplyr` methods. See the [duckplyr website](https://duckplyr.tidyverse.org/index.html) for more information.)
 
 ```{r setup}
-pacman::p_load(tictoc, tidyverse, duckdb)
-db = duckdb::dbConnect(duckdb())
+pacman::p_load(tictoc, tidyverse, duckdb, zeallot)
+```
 
-db
+Next, we print the parameters for this run. (Adjust as needed.) `n_trials` gives the number of times to run the main loop. `nrow_check` gives the starting value for the `nrow.check` parameter of the `duckdb::duckdb_read_csv` function call for the `csv` file that causes errors when read with default values.
+
+```{r}
+params
+```
+We will test speeds on the following `csv` files:
+
+```{r}
+csvs = fs::dir_info("csvs") |> 
+  select(path, size) |>
+  arrange(desc(size))
+
+csvs
+```
+
+
+## Issue Reading `csv` Files
+
+Some `csv` files cannot be read easily into R using Duck DB. For example, in this section, `duckdb::duckdb_read_csv` throws an error using its default values on a particular `csv` file (because it incorrectly reads the `SYMBOL` column as a Boolean. The workaround is to increase the `nrow.check` parameter when `duckdb::duckdb_read_csv` is called.
+
+```{r}
+#| eval: !expr params$run_boolean_problem
+
+problematic_csv_path = 'csvs/98-401-X2021006_English_CSV_data_BritishColumbia-utf8.csv'
+db_boolean_problem = duckdb::dbConnect(duckdb::duckdb())
+
+# this gives an error because it thinks the "SYMBOL" column is a boolean
+tryCatch(
+  duckdb::duckdb_read_csv(db_boolean_problem, name = "test_table", files = csv_path, header = TRUE, transaction = T),
+  error = function(e) print(e)
+)
+```
+
+Here, we'll define a function that increases the `nrow.check` parameter when `duckdb::duckdb_read_csv` generates an error. It stops when `duckdb::duckdb_read_csv` succeeds and returns the value of `nrow.check`.
+
+```{r}
+adjust_nrow_check = function(conn, name, files, header, transaction, nrow_check, by) {
+  i = nrow_check
+  while (T) {
+    tryCatch({
+      duckdb::duckdb_read_csv(conn = conn, name = name, files =  files, header = header, transaction = transaction, nrow.check = i)
+      return(i)
+    },
+    error = function(e) NULL)
+    i = i + by
+  }
+}
+```
+
+```{r}
+#| eval: !expr params$run_boolean_problem
+
+i = adjust_nrow_check(conn = db_boolean_problem, name = "test_table", files = csv_path, header = T, transaction = T, nrow_check = params$nrow_check, by = params$nrow_by)
+
+cat("The `duckdb::duckdb_read_csv` function works when `nrow.check` ==", i)
+
+symbol_duckdb = tbl(db_boolean_problem, "test_table") |>
+  count(SYMBOL) |>
+  arrange(n) |>
+  collect()
+
+symbol_duckdb
+saveRDS(list(i, symbol_duckdb), "RDS/run_boolean_problem.Rds")
+```
+
+```{r}
+#| eval: !expr ~params$run_boolean_problem
+#| echo: false
+
+c(i, symbol_duckdb) %<-% readRDS("RDS/run_boolean_problem.Rds")
+
+cat("The `duckdb::duckdb_read_csv` function works when `nrow.check` ==", i)
+symbol_duckdb
+```
+
+## Speed Tests
+
+In this section, we run the main speed tests. We will compare the speeds of `dplyr`, `duckplyr` and `Duck DB`. For load times, we will compare R's `read.csv2` function with Duck DB's `read_csv_duckdb`. Each `csv` will be read and have a basic operation performed on it (equivalent to a SQL select query)---these operations are specific to each file, are entirely made up, and are saved as lists of R expressions. `exprs_dplyr` is a list containing the query expressions using `dplyr`.
+
+```{r}
+exprs = list(
+  "mutate(C1_COUNT_TOTAL = as.double(C1_COUNT_TOTAL)) |>
+     group_by(CENSUS_YEAR, GEO_LEVEL, GEO_NAME) |>
+     summarise(sum(C1_COUNT_TOTAL))
+  ",
+  "count(CITY, SEX)",
+  "mutate(BIRTH_YR_MON = ym(BIRTH_YR_MON)) |>
+    pull(BIRTH_YR_MON) |>
+    unique() |>
+    sort()",
+  "count(JURISDICTION, CONVEYANCE_TYPE_DESCRIPTION)",
+  "summarise(across(everything(), min))"
+)
+```
+
+```{r}
+exprs_dplyr = map(exprs, ~ paste("df |> ", .))
 ```
 
 
 ```{r}
-#| eval: false
-# this little script shows that reading information into a database is fraught with error and complexity!
+exprs_dplyr = list(
+  function(df) df |> select(1)
+)
+
+exprs_dplyr[[1]](cars)
+```
 
 
-csv = 'C:/Users/jduan/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data/98-401-X2021006_English_CSV_data_BritishColumbia-utf8.csv'
-
-db <- duckdb::dbConnect(duckdb::duckdb())
-
-# this gives an error cuz it thinks the "SYMBOL" column is a boolean
-duckdb::duckdb_read_csv(db, name = "mytable", files = csv, header = TRUE, transaction = T)
-
-
-
-# we can force the read command to consider more rows when determining the datatypes
-x = 500 # the default
-while (T) {
-  tryCatch({
-    duckdb::duckdb_read_csv(db, name = "mytable", files = csv, header = TRUE, transaction = T, nrow.check = x)
-    break
-  }, error = function(e) cat("Nope! x = ", x, "\n")
+```{r}
+exprs_duckplyr = list(
+  quo(df |>
+      duckplyr::as_duckplyr_tibble() |>
+      mutate(C1_COUNT_TOTAL = as.double(C1_COUNT_TOTAL)) |>
+      group_by(CENSUS_YEAR, GEO_LEVEL, GEO_NAME) |>
+      summarise(sum(C1_COUNT_TOTAL))
+  ),
+  quo(df |>
+    duckplyr::as_duckplyr_tibble() |>
+    count(CITY, SEX)
+  ),
+  quo(df |>
+    duckplyr::as_duckplyr_tibble() |>
+    mutate(BIRTH_YR_MON = ym(BIRTH_YR_MON)) |>
+    pull(BIRTH_YR_MON) |>
+    unique() |>
+    sort()
+  ),
+  quo(df |>
+    duckplyr::as_duckplyr_tibble() |>
+    count(JURISDICTION, CONVEYANCE_TYPE_DESCRIPTION)
+  ),
+  quo(df |>
+    duckplyr::as_duckplyr_tibble() |>
+    summarise(across(everything(), min))
   )
-  x = x + 500
-}
-
-
-dplyr::tbl(db, "mytable") |>
-  dplyr::select(SYMBOL) |>
-  dplyr::count(SYMBOL) |>
-  dplyr::collect()
-
-
-# compare duckplyr speeds versus regular dplyr
-
-# basically all I'm doing is reading some csv files into either memory or a duck db and running a few made up queries to see what all goes fastest.
-
-# look at the interim_results tibble at the end to see the times.
+)
+```
 
 
 
-csvs = fs::dir_ls("C:/Users/jduan/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data", regexp = "csv$") |>
-  head(5)
 
+
+```{r}
+exprs_dplyr = list(
+  expr(df |>
+    mutate(C1_COUNT_TOTAL = as.double(C1_COUNT_TOTAL)) |>
+    group_by(CENSUS_YEAR, GEO_LEVEL, GEO_NAME) |>
+    summarise(sum(C1_COUNT_TOTAL))
+  ),
+  expr(df |>
+    count(CITY, SEX)
+  ),
+  expr(df |>
+    mutate(BIRTH_YR_MON = ym(BIRTH_YR_MON)) |>
+    pull(BIRTH_YR_MON) |>
+    unique() |>
+    sort()
+  ),
+  expr(df |>
+    count(JURISDICTION, CONVEYANCE_TYPE_DESCRIPTION)
+  ),
+  expr(df |>
+    summarise(across(everything(), min))
+  )
+)
+```
+
+`exprs_duckplyr` is the same, except it evaluates the expressions using `duckplyr`.
+
+```{r}
+exprs_duckplyr = list(
+  expr(df |>
+      duckplyr::as_duckplyr_tibble() |>
+      mutate(C1_COUNT_TOTAL = as.double(C1_COUNT_TOTAL)) |>
+      group_by(CENSUS_YEAR, GEO_LEVEL, GEO_NAME) |>
+      summarise(sum(C1_COUNT_TOTAL))
+  ),
+  expr(df |>
+    duckplyr::as_duckplyr_tibble() |>
+    count(CITY, SEX)
+  ),
+  expr(df |>
+    duckplyr::as_duckplyr_tibble() |>
+    mutate(BIRTH_YR_MON = ym(BIRTH_YR_MON)) |>
+    pull(BIRTH_YR_MON) |>
+    unique() |>
+    sort()
+  ),
+  expr(df |>
+    duckplyr::as_duckplyr_tibble() |>
+    count(JURISDICTION, CONVEYANCE_TYPE_DESCRIPTION)
+  ),
+  expr(df |>
+    duckplyr::as_duckplyr_tibble() |>
+    summarise(across(everything(), min))
+  )
+)
+```
+
+```{r}
 exprs_dplyr = list(
   expr(df |>
          mutate(C1_COUNT_TOTAL = as.double(C1_COUNT_TOTAL)) |>
@@ -90,69 +253,83 @@ exprs_dplyr = list(
          summarise(mean = mean(CONDO))
   )
 )
+```
 
-exprs_duck = list(
-  expr(df |>
-         mutate(C1_COUNT_TOTAL = as.double(C1_COUNT_TOTAL)) |>
-         duckplyr::as_duckplyr_tibble() |>
-         group_by(CENSUS_YEAR, GEO_LEVEL, GEO_NAME) |>
-         summarise(sum(C1_COUNT_TOTAL))
-  ),
-  expr(df |>
-         mutate(C1_COUNT_TOTAL = as.double(C1_COUNT_TOTAL)) |>
-         duckplyr::as_duckplyr_tibble() |>
-         group_by(CHARACTERISTIC_NAME) |>
-         summarise(sum(C1_COUNT_TOTAL))
-  ),
-  expr(df |>
-         duckplyr::as_duckplyr_tibble() |>
-         summarise(across(where(is.integer), sum))
-  ),
-  expr(df |>
-         duckplyr::as_duckplyr_tibble() |>
-         group_by(STUDY_ID) |>
-         count(CITY) |>
-         arrange(desc(n))
-  ),
-  expr(df |>
-         duckplyr::as_duckplyr_tibble() |>
-         group_by(CMA) |>
-         summarise(mean = mean(CONDO))
-  )
-)
 
-exprs_duck_db = list(
-  expr(tbl(db_con, "t1") |>
-         mutate(C1_COUNT_TOTAL = as.double(C1_COUNT_TOTAL)) |>
-         duckplyr::as_duckplyr_tibble() |>
-         group_by(CENSUS_YEAR, GEO_LEVEL, GEO_NAME) |>
-         summarise(sum(C1_COUNT_TOTAL))
-  ),
-  expr(tbl(db_con, "t2") |>
-         mutate(C1_COUNT_TOTAL = as.double(C1_COUNT_TOTAL)) |>
-         duckplyr::as_duckplyr_tibble() |>
-         group_by(CHARACTERISTIC_NAME) |>
-         summarise(sum(C1_COUNT_TOTAL))
-  ),
-  expr(tbl(db_con, "t3") |>
-         duckplyr::as_duckplyr_tibble() |>
-         summarise(across(where(is.integer), sum))
-  ),
-  expr(tbl(db_con, "t4") |>
-         group_by(STUDY_ID) |>
-         count(CITY) |>
-         arrange(desc(n))
-  ),
-  expr(tbl(db_con, "t5") |>
-         group_by(CMA) |>
-         summarise(mean = mean(CONDO))
-  )
-)
-
-db_con <- duckdb::dbConnect(duckdb::duckdb())
-
-n_trials = 2 # adjust this as you like
+```{r}
 results = tibble()
+
+for (trial in 1:params$n_trials) {
+  cat("\ntrial:", trial)
+  
+  interim_results = tibble(
+    csvs,
+    expr_dplyr = as.character(exprs_dplyr),
+    nrow = NA_integer_,
+    load_time_dplyr = NA_real_,
+    load_time_duck_db = NA_real_,
+    eval_time_dplyr = NA_real_,
+    eval_time_duckplyr = NA_real_,
+    eval_time_duck_db = NA_real_
+  )
+
+  for (i in 1:nrow(csvs)) {
+
+    cat("\ni:", i, "\n")
+
+    # read the csv into memory in R
+    tic()
+    df = read.csv2(csvs$path[i], sep = ",", quote = "\"", na.strings = "")
+    toc(log = T)
+    interim_results[i, 'load_time_dplyr'] = as.double(word(tail(tic.log(), 1, 1)))
+    
+    
+    # read the csv into the duck database
+    tic()
+
+    # see 'test nrow check.R' for the reasoning here
+    if (i == 1) duckdb::duckdb_read_csv(db, name = paste0("t", as.character(i)), files = csvs[i], header = TRUE, transaction = T, nrow.check = 8500) else duckdb::duckdb_read_csv(db_con, name = paste0("t", as.character(i)), files = csvs[i], header = TRUE, transaction = T)
+    toc(log = T)
+    interim_results[i, 'load_time_duck_db'] = as.double(word(toc()$callback_msg, 1))
+    
+    
+    
+
+    # run a dplyr expression on the df
+    tic()
+    eval(exprs_dplyr[[i]])
+    toc(log = T)
+    interim_results[i, 'eval_time_dplyr'] = as.double(word(tail(tic.log(), 1, 1)))
+
+    # run a duckplyr expression on the df
+    tic()
+    eval(exprs_duck[[i]])
+    toc(log = T)
+    interim_results[i, 'eval_time_duck'] = as.double(word(tail(tic.log(), 1, 1)))
+
+    
+
+    # run the dbplyr expression on the database
+    tic()
+    eval(exprs_duck_db[[i]])
+    toc(log = T)
+    interim_results[i, 'eval_time_duck_db'] = as.double(word(tail(tic.log(), 1, 1)))
+
+    interim_results[i, 'file_size'] = round(file.info(csvs[i])$size / 1e9, 2)
+    interim_results[i, 'nrow'] = nrow(df)
+  }
+  interim_results = mutate(interim_results, n = n, .before=1)
+  results = bind_rows(results, interim_results)
+}
+
+```
+
+
+
+
+```{r, eval=F}
+n_trials = 2 # adjust this as you like
+
 
 for (n in 1:n_trials) {
   cat("\nn:", n)
