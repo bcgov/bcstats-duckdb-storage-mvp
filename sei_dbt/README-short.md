@@ -64,7 +64,11 @@ sei_dbt:
 
 ## Usage
 
-To set up the duckDB database with our raw csv data, simply run a single command:
+To set up the duckDB database with our raw csv data, first ensure that all csvs are in the correct format (UTF-8). This can be done by running the `sei_dbt.sh` file from a git bash command line (**not a windows command prompt!**):
+
+`./sei_dbt.sh`
+
+Then, to run through the dbt pipeline, simply run a single command:
 
 `dbt run`
 
