@@ -51,7 +51,7 @@ dbDisconnect(con, shutdown = TRUE)
 #####################################################################
 
 # create / connect to database file in another way
-drv <- duckdb(dbdir = file.path(test_csv_folder, "db/bcstats_db_dev.duckdb"),
+drv <- duckdb(dbdir = file.path(test_csv_folder, "db/bcstats_db_prod.duckdb"),
               read_only = TRUE) # Only read table not write data.
 bcstats_read_con <- dbConnect(drv)
 
@@ -59,7 +59,7 @@ bcstats_read_con <- dbConnect(drv)
 
 
 # Show how many tables in database
-dbListTables(bcstats_read_con)
+all_tbl_list = dbListTables(bcstats_read_con)
 # many tables.
 # list columns/fields in one table
 dbListFields(bcstats_read_con, "tbl_98_401_X2021006_English_BC")
@@ -84,10 +84,10 @@ tbl_98_401_X2021006_English_BC_db %>%
   collect()
 
 
-tbl_98_401_X2021006_English_BC_db = tbl(bcstats_read_con, "tbl_98_401_X2021006_English_BC")
+tbl_98_401_X2021025_English_db = tbl(bcstats_read_con, "tbl_98_401_X2021025_English")
 
 
-tbl_98_401_X2021006_English_BC_db %>%
+tbl_98_401_X2021025_English_db %>%
   head(4) %>%
   collect()
 
