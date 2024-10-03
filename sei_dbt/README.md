@@ -64,7 +64,8 @@ pip install -r requirements.txt
 If you already have a python environment to work with, you can
 
 ```bash
-pip install dbt-duckdb duckdb
+conda install dbt-duckdb
+conda install duckdb
 ```
 
 Every time you work on the project, ensure the environment is active by running `conda activate <env_name>` to access the correct setup. 
