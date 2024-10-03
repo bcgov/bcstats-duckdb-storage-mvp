@@ -32,6 +32,18 @@ vars:
   sei_dbt:
     db_file_path: 'db'
 
+# add an on-run-end hook in your dbt_project.yml to automatically drop all staging tables at the end of each run:
+on-run-end:
+  - "{% if target.name == 'prod' %} {% for table in (dbt_utils.get_relations_by_prefix(target.schema, 'stg_')) %} {{ log('Dropping table: ' ~ table, info=True) }} DROP VIEW IF EXISTS {{ table }}; {% endfor %} {% endif %}"
+# - **Ensure dbt_utils is Installed**: The `dbt_utils.get_relations_by_prefix()` function is part of the `dbt_utils` package. If you don’t have it installed, you can add it to your `packages.yml`:
+#
+#   ```yaml
+#   packages:
+#     - package: dbt-labs/dbt_utils
+#       version: 1.3.0  # Check for the latest version
+#   ```
+#
+#   After adding this, run `dbt deps` to install the package.
 
 
 
@@ -45,4 +57,4 @@ models:
   sei_dbt:
     # Config indicated by + and applies to all files under models/staging/
     staging:
-        +materialized:  "{{ 'ephemeral' if target.name == 'prod' else 'view' }}"  # Use ephemeral materialization for staging in prod env
+        +materialized:  "{{ 'ephemeral' if target.name == 'prod' else 'table' }}"  # Use ephemeral materialization for staging in prod env
