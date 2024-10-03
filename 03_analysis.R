@@ -83,6 +83,14 @@ tbl_98_401_X2021006_English_BC_db %>%
   head(4) %>%
   collect()
 
+
+tbl_98_401_X2021006_English_BC_db = tbl(bcstats_read_con, "tbl_98_401_X2021006_English_BC")
+
+
+tbl_98_401_X2021006_English_BC_db %>%
+  head(4) %>%
+  collect()
+
 ######################################################################################
 # Read data table: method 2. use SQL query directly
 ########################################################################################
