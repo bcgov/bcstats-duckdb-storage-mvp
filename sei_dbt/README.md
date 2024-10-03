@@ -122,10 +122,11 @@ The `profiles.yml` file is designed for **global or environment-specific configu
    ```
    
 In this `profiles.yml`:
-- We have three environments: `dev`, `test` and `prod`.
+- We have three environments: `dev`, `test` and `prod`. Only the DBAs can access and create tables in `dev` and `test` environments. Other analysts will be only able to access the tables in `prod` with read-only mode. 
 - For each environment, we define:
   - `external_root`: A variable points to the directory where CSV files or other data are located. This is important since in this project, most of the CSV files are stored on the LAN whose path should not be hard-code and we need `external_root` to store this path information.
   - `dbt-duckdb` only support certain keys in the `profiles.yml`; for example, `external_root`, `settings`, and `config_options`, etc, and each has its own purpose. `custom`, `vars` are not supported in `profiles.yml`, but are supported in `dbt-project.yml`. 
+  - 
    
 #### Key Usage:
 - **Sensitive Information**: The `profiles.yml` file is the right place to store sensitive information like database credentials, API tokens, or connection settings. It is generally **not version-controlled**, as it may contain secrets. In this project, 
