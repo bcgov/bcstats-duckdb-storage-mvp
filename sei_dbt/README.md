@@ -134,13 +134,14 @@ In this `profiles.yml`:
 #### Default Location:
 - The `profiles.yml` file is located by default in `~/.dbt/profiles.yml`, making it global across multiple dbt projects on your local machine. If you use a Windows machine, it could be in `C:\Users\myusername\.dbt`.
 - You can also override this by explicitly specifying the location of `profiles.yml` with the `DBT_PROFILES_DIR` environment variable.
-- In this project, 
+- In this project, we don't use database, and we don't need to store the database credentials in the `profiles.yml`, but we have CSV files stored in different location on the LAN, so the LAN locations will be stored in the `profiles.yml` using `external_root` key/value pair. We can keep a local `profiles.yml` or store the `profiles.yml` in our user home directory. In this project, we store the `profiles.yml` in the project folder, and make git ignore this yml file. 
+- Other project specific parameters could be set in the `dbt_project.yml`.
 
 
 To **infer variables from `profiles.yml`** in your **dbt model file**, you need to use **Jinja** templating and the `target` object, which exposes information from `profiles.yml`.
 
 
-#### Step 2: Access the Variables in the Model File
+#### Access the Variables in the Model File
 
 
 Here’s an example of how you might use the `data_path` variable inside a dbt model:
@@ -170,7 +171,7 @@ SELECT * FROM final_data;
 - **`{{ target.vars.data_path }}`**: This Jinja expression accesses the `data_path` variable from `profiles.yml`. When you run dbt with the `--target dev` flag, it will dynamically insert `"data/dev"`, and for `--target prod`, it will insert `"data/prod"`.
 
 In this case, the model will:
-1. **Use the `data_path`** defined in `profiles.yml` to load the appropriate CSV file based on the environment (e.g., `data/dev/my_file.csv` in dev, `data/prod/my_file.csv` in prod).
+- **Use the `data_path`** defined in `profiles.yml` to load the appropriate CSV file based on the environment (e.g., `data/dev/my_file.csv` in dev, `data/prod/my_file.csv` in prod).
 
 
 #### Source:
@@ -205,55 +206,13 @@ vars:
 - **Project Paths**: You can configure paths for models, seeds, and snapshots.
 - **Project-specific Settings**: This file defines what dbt will do within the scope of your project. The configurations are highly tailored to that particular project, making it version-controlled and tied to the specific project context.
 
+In this project, we only `models`, `macros` folders. `Log` and `target` folders will be created by the `dbt run`.
+
 #### Source:
 - [dbt_project.yml Reference](https://docs.getdbt.com/reference/project-configs/dbt_project.yml)
    
-   
-### **Comparison of `dbt_project.yml` vs. `profiles.yml`**
+ 
 
-| Feature                  | `dbt_project.yml`                              | `profiles.yml`                              |
-|--------------------------|------------------------------------------------|---------------------------------------------|
-| **Purpose**               | Project-specific settings and configuration    | Global or environment-specific configuration |
-| **Location**              | Inside the project directory                   | Typically in `~/.dbt/` (outside project directory) |
-| **Version Control**       | Included in version control (part of the project) | Usually not version-controlled (contains secrets) |
-| **Scope**                 | Applies only to the current dbt project         | Can apply to multiple dbt projects (global settings) |
-| **Use for Variables**     | Yes, for project-specific variables             | Yes, but mostly for credentials or connection info |
-| **Sensitive Information** | No, not intended for secrets                   | Yes, often contains database credentials     |
-| **Environment Handling**  | Can define environment-specific variables, but limited to the project | Designed to handle different environments and targets (dev, test, prod, etc.) |
-
-
-### **Best Practices: Using `dbt_project.yml` and `profiles.yml` Together**
-
-1. **Store Credentials in `profiles.yml`**:
-   - **Example**: If you're working with **DuckDB**, the path to your DuckDB file (e.g., `dev.db`, `prod.db`) and other environment-specific information should go into `profiles.yml`.
-   - **Security**: Since `profiles.yml` is often kept outside version control, it's a safe place to store sensitive credentials like database usernames, passwords, and connection strings.
-
-2. **Store Project Variables in `dbt_project.yml`**:
-   - **Example**: You can define variables like project settings, model configurations, or environment-specific logic in `dbt_project.yml`.
-   - **Version Control**: This file should be included in version control, ensuring that your dbt project is portable and self-contained.
-
-3. **Use `profiles.yml` for Multiple Environments**:
-   - In `profiles.yml`, you can define multiple outputs for different environments (e.g., `dev`, `prod`) and switch between them using `--target`. This allows you to run the same dbt project in different environments with separate configurations.
-
-4. **Reference Variables**:
-   - **In SQL Models**: Variables defined in `dbt_project.yml` can be accessed in your models using the `{{ var() }}` function.
-   - **In Profiles**: You can reference different profiles using `dbt run --target` to run models with specific credentials or settings from `profiles.yml`.
-
-
-**Running dbt Commands**:
-   - For development:
-     ```bash
-     dbt run --target dev
-     ```
-   - For production:
-     ```bash
-     dbt run --target prod
-     ```
-
-
-
-
-In this setup, the sensitive information is safely stored in `profiles.yml` (such as paths or credentials), and the project-specific variables and configurations are stored in `dbt_project.yml`.
 
 5. **Set up the directory structure:**
 

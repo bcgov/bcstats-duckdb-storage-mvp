@@ -1,25 +1,22 @@
 {% macro drop_staging_objects() %}
     {% if target.name == 'prod' %}
-        -- Get all objects (tables or views) that start with 'stg_'
-        {% set result = run_query("SELECT table_name, table_type FROM information_schema.tables WHERE table_name LIKE 'stg%'") %}
+        {% set relations = dbt_utils.get_relations_by_prefix(target.schema, 'stg_') %}
+        {% for relation in relations %}
+            {% set relation_name = relation.identifier %}
+            {{ log('Dropping relation: ' ~ relation_name, info=True) }}
 
-        -- Loop over each object
-        {% for row in result %}
-            {% set table_name = row['table_name'] %}
-            {% set table_type = row['table_type'] %}
+            -- Attempt to drop as a view
+            {% set drop_view_sql = "DROP VIEW IF EXISTS " ~ relation_name %}
+            {{ log('Running SQL: ' ~ drop_view_sql, info=True) }}
+            {{ run_query(drop_view_sql) }}
 
-            -- Log the object being dropped
-            {{ log("Dropping " ~ table_type ~ ": " ~ table_name, info=True) }}
-
-            -- Drop the object based on its type (Table or View)
-            {% if table_type == 'VIEW' %}
-                {{ run_query("DROP VIEW IF EXISTS " ~ table_name) }}
-            {% else %}
-                {{ run_query("DROP TABLE IF EXISTS " ~ table_name) }}
-            {% endif %}
+            -- Attempt to drop as a table
+            {% set drop_table_sql = "DROP TABLE IF EXISTS " ~ relation_name %}
+            {{ log('Running SQL: ' ~ drop_table_sql, info=True) }}
+            {{ run_query(drop_table_sql) }}
 
         {% endfor %}
     {% else %}
-        {{ log("Not in production environment, skipping drop staging objects", info=True) }}
+        {{ log("Not in production environment, skipping drop of staging objects", info=True) }}
     {% endif %}
 {% endmacro %}
