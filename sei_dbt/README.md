@@ -1,17 +1,17 @@
-## Overview of dbt-duckdb
+## Overview
 
-This project is designed to load multiple CSV files into a DuckDB database using **dbt** (Data Build Tool). It helps automate the process of transforming, modeling, and querying data from CSV files in a simple and efficient way. DuckDB is used as the local database engine, and dbt orchestrates the loading and transformation process.
+This project is created to load multiple CSV files into a DuckDB database using **dbt-duckdb** (Data Build Tool). It helps automate the process of transforming, modeling, and querying data from CSV files in a simple and efficient way. DuckDB is used as the local database engine, and dbt orchestrates the loading and transformation process.
 
 
 
-## Features
+## Rationale
 
 
 =======
 - **Automated CSV Loading:** Easily load multiple CSV files into DuckDB.
 - **Data Transformation:** Use dbt to perform SQL-based data transformations on the loaded CSVs.
 - **Lightweight Database:** Leverages DuckDB, which is optimized for efficient data processing on local files.
-- **Flexible:** Customize dbt models to suit your business logic and transformation requirements.
+- **Flexible:** Customize dbt models to suit our business logic and transformation requirements.
 
 ---
 
@@ -26,11 +26,7 @@ Since we use `dbt-duckdb` Python package, before starting, ensure you have the f
 4. **CSV Files:** Ensure you have your source CSV files ready.
 
 
-To install the required Python packages:
 
-```bash
-pip install dbt-duckdb duckdb
-```
 
 More instructions are available in https://github.com/mehd-io/dbt-duckdb-tutorial/
 
@@ -46,14 +42,45 @@ Follow these steps to set up and configure the project:
    git clone <your-repository-url>
    cd <project-folder>
    ```
+   
+2. **Install the required Python packages**
 
-2. **Initiate a new projec:**
+After you clone the repo, make sure there is `requirment.txt` file.
 
-If you start a new project, 
+In this project, we recommend using a **Conda environment** to manage dependencies and keep your Python environments clean. 
+
+To get started, create a new Conda environment from the command line with the following command: `conda create -n <env_name> python=<version>`. 
+
+Once the environment is created, activate it with `conda activate <env_name>`. 
+
+
+You can then install all necessary dependencies within this environment using
+
+
+```bash
+pip install -r requirements.txt
+```
+
+If you already have a python environment to work with, you can
+
+```bash
+pip install dbt-duckdb duckdb
+```
+
+Every time you work on the project, ensure the environment is active by running `conda activate <env_name>` to access the correct setup. 
+
+This approach isolates dependencies, minimizing conflicts across projects.
+   
+   
+
+2. **Initiate a new project:**
+
+If you start a new project from scratch, you can
 
 ```bash
 dbt init
 ```
+
 It will:
 
     ask you to name your project
@@ -64,11 +91,13 @@ Then, it will:
 
     Create a new folder with your project name and sample files, enough to get you started with dbt
     Create a connection profile on your local machine. The default location is ~/.dbt/profiles.yml.
+    
+If you clone this repo, it should already be initiated, and all the folders and files are already created.
 
 
 3. **Configure dbt profiles:**
 
-   dbt uses a `profiles.yml` file to connect to DuckDB. Ensure that your `profiles.yml` file is correctly configured as follows:
+The `profiles.yml` file is designed for **global or environment-specific configurations** and often contains sensitive information like **database credentials**, **connection settings**, and **environment-specific settings**. Unlike `dbt_project.yml`, this file is stored outside the project directory, often in the root directory or the user's home directory (`~/.dbt/` by default). This keeps sensitive information like passwords and credentials out of version control.
 
    ```yaml
    duckdb_project:
@@ -79,17 +108,155 @@ Then, it will:
          path: "path/to/your/database.db"  # Path to your DuckDB database file
          extensions: ['parquet', 'json']   # Optional extensions to load, if needed
             duckdb_project:
+               threads: 4
+         external_root: "data/dev"
 
        test:
          type: duckdb
          path: "test.db"  # Test database path
+         external_root: "data/test" 
          
        prod:
          type: duckdb
          path: "prod.db"  # Production database path
+         external_root: "data/prod"
    ```
+   
+In this `profiles.yml`:
+- We have three environments: `dev`, `test` and `prod`.
+- For each environment, we define:
+  - `external_root`: A variable points to the directory where CSV files or other data are located.  
+  - `dbt-duckdb` only support certain keys in the `profiles.yml`; for example, `external_root`, `settings`, and `config_options`, etc, and each has its own purpose. `custom`, `vars` are not supported. 
+   
+#### Key Usage:
+- **Global Connection Configuration**: You use `profiles.yml` to store environment-specific details such as database credentials, which will be applied to all dbt projects that use this profile.
+- **Sensitive Information**: The `profiles.yml` file is the right place to store sensitive information like database credentials, API tokens, or connection settings. It is generally **not version-controlled**, as it may contain secrets.
+- **Multiple Environments**: You can define multiple environments (like `dev`, `prod`, `test`) within `profiles.yml` and switch between them using the `target` option. This is useful when different teams or environments need to connect to different databases or use different credentials.
 
-4. **Set up the directory structure:**
+#### Default Location:
+- The `profiles.yml` file is located by default in `~/.dbt/profiles.yml`, making it global across multiple dbt projects on your local machine. If you use a Windows machine, it could be in `C:\Users\myusername\.dbt`.
+- You can also override this by explicitly specifying the location of `profiles.yml` with the `DBT_PROFILES_DIR` environment variable.
+
+
+To **infer variables from `profiles.yml`** in your **dbt model file**, you need to use **Jinja** templating and the `target` object, which exposes information from `profiles.yml`.
+
+
+#### Step 2: Access the Variables in the Model File
+
+
+Here’s an example of how you might use the `data_path` variable inside a dbt model:
+
+```sql
+-- models/staging/my_staging_model.sql
+
+WITH raw_data AS (
+
+    -- Use the data_path from profiles.yml
+    SELECT *
+    FROM read_csv_auto('{{ target.external_root }}/my_file.csv')
+
+),
+
+final_data AS (
+
+    SELECT
+        *
+    FROM raw_data
+
+)
+
+SELECT * FROM final_data;
+```
+
+- **`{{ target.vars.data_path }}`**: This Jinja expression accesses the `data_path` variable from `profiles.yml`. When you run dbt with the `--target dev` flag, it will dynamically insert `"data/dev"`, and for `--target prod`, it will insert `"data/prod"`.
+
+In this case, the model will:
+1. **Use the `data_path`** defined in `profiles.yml` to load the appropriate CSV file based on the environment (e.g., `data/dev/my_file.csv` in dev, `data/prod/my_file.csv` in prod).
+
+
+#### Source:
+- [Profiles.yml Reference](https://docs.getdbt.com/docs/configure-your-profile)
+   
+   
+4. **Configure project:**   Project-Specific Configuration
+
+The `dbt_project.yml` file is the configuration file specific to a **single dbt project**. It contains settings related to that particular project, such as the project's name, paths to models, seeds, and specific **variables** (used in transformations and models).
+
+This file is usually placed in the root of the dbt project directory and is included in version control because it’s tied to the project itself.
+
+#### Example of `dbt_project.yml`:
+```yaml
+name: 'my_dbt_project'
+version: '1.0.0'
+profile: 'my_profile'
+
+# Define the structure and directories for models
+model-paths: ["models"]
+seed-paths: ["seeds"]
+
+# Project-specific variables
+vars:
+  some_variable: 'value'
+  environment: 'dev'  # Example environment variable
+```
+
+#### Key Usage:
+- **Variables**: You can define project-specific variables under `vars`. These are useful when you need to reference configuration values in multiple places in your models, macros, or tests.
+  - These variables are **project-specific** and are **not meant to store sensitive information** like database credentials.
+- **Project Paths**: You can configure paths for models, seeds, and snapshots.
+- **Project-specific Settings**: This file defines what dbt will do within the scope of your project. The configurations are highly tailored to that particular project, making it version-controlled and tied to the specific project context.
+
+#### Source:
+- [dbt_project.yml Reference](https://docs.getdbt.com/reference/project-configs/dbt_project.yml)
+   
+   
+### **Comparison of `dbt_project.yml` vs. `profiles.yml`**
+
+| Feature                  | `dbt_project.yml`                              | `profiles.yml`                              |
+|--------------------------|------------------------------------------------|---------------------------------------------|
+| **Purpose**               | Project-specific settings and configuration    | Global or environment-specific configuration |
+| **Location**              | Inside the project directory                   | Typically in `~/.dbt/` (outside project directory) |
+| **Version Control**       | Included in version control (part of the project) | Usually not version-controlled (contains secrets) |
+| **Scope**                 | Applies only to the current dbt project         | Can apply to multiple dbt projects (global settings) |
+| **Use for Variables**     | Yes, for project-specific variables             | Yes, but mostly for credentials or connection info |
+| **Sensitive Information** | No, not intended for secrets                   | Yes, often contains database credentials     |
+| **Environment Handling**  | Can define environment-specific variables, but limited to the project | Designed to handle different environments and targets (dev, test, prod, etc.) |
+
+
+### **Best Practices: Using `dbt_project.yml` and `profiles.yml` Together**
+
+1. **Store Credentials in `profiles.yml`**:
+   - **Example**: If you're working with **DuckDB**, the path to your DuckDB file (e.g., `dev.db`, `prod.db`) and other environment-specific information should go into `profiles.yml`.
+   - **Security**: Since `profiles.yml` is often kept outside version control, it's a safe place to store sensitive credentials like database usernames, passwords, and connection strings.
+
+2. **Store Project Variables in `dbt_project.yml`**:
+   - **Example**: You can define variables like project settings, model configurations, or environment-specific logic in `dbt_project.yml`.
+   - **Version Control**: This file should be included in version control, ensuring that your dbt project is portable and self-contained.
+
+3. **Use `profiles.yml` for Multiple Environments**:
+   - In `profiles.yml`, you can define multiple outputs for different environments (e.g., `dev`, `prod`) and switch between them using `--target`. This allows you to run the same dbt project in different environments with separate configurations.
+
+4. **Reference Variables**:
+   - **In SQL Models**: Variables defined in `dbt_project.yml` can be accessed in your models using the `{{ var() }}` function.
+   - **In Profiles**: You can reference different profiles using `dbt run --target` to run models with specific credentials or settings from `profiles.yml`.
+
+
+**Running dbt Commands**:
+   - For development:
+     ```bash
+     dbt run --target dev
+     ```
+   - For production:
+     ```bash
+     dbt run --target prod
+     ```
+
+
+
+
+In this setup, the sensitive information is safely stored in `profiles.yml` (such as paths or credentials), and the project-specific variables and configurations are stored in `dbt_project.yml`.
+
+5. **Set up the directory structure:**
 
    Your dbt project should follow this structure:
 

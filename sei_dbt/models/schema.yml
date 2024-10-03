@@ -1,7 +1,7 @@
 version: 2
 
 models:
-  - name: fin_neighborhood_income
+  - name: fin_neighborhood_incomes
     description: "A final neighborhood income table from ministry of finance"
     columns:
       - name: postal_code

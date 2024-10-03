@@ -1,0 +1,109 @@
+agate==1.9.1
+annotated-types==0.7.0
+asttokens @ file:///opt/conda/conda-bld/asttokens_1646925590279/work
+attrs==24.2.0
+babel==2.16.0
+backcall @ file:///home/ktietz/src/ci/backcall_1611930011877/work
+Bottleneck @ file:///C:/Windows/Temp/abs_3198ca53-903d-42fd-87b4-03e6d03a8381yfwsuve8/croots/recipe/bottleneck_1657175565403/work
+certifi==2024.8.30
+cffi==1.17.1
+charset-normalizer==3.3.2
+click==8.1.7
+colorama @ file:///C:/b/abs_a9ozq0l032/croot/colorama_1672387194846/work
+comm @ file:///C:/b/abs_1419earm7u/croot/comm_1671231131638/work
+daff==1.3.46
+dbt-adapters==1.7.0
+dbt-common==1.10.0
+dbt-core==1.8.7
+dbt-duckdb==1.8.4
+dbt-extractor==0.5.1
+dbt-semantic-interfaces==0.5.1
+debugpy @ file:///C:/b/abs_c0y1fjipt2/croot/debugpy_1690906864587/work
+decorator @ file:///opt/conda/conda-bld/decorator_1643638310831/work
+deepdiff==7.0.1
+duckdb==1.0.0
+exceptiongroup==1.2.2
+executing @ file:///opt/conda/conda-bld/executing_1646925071911/work
+fuzzywuzzy==0.18.0
+geographiclib==2.0
+geopy==2.3.0
+h11==0.14.0
+idna==3.10
+importlib-metadata==6.11.0
+ipykernel @ file:///C:/b/abs_07rkft_vaz/croot/ipykernel_1691121700587/work
+ipython @ file:///C:/b/abs_254uk73z5b/croot/ipython_1691532131313/work
+isodate==0.6.1
+jedi @ file:///C:/ci/jedi_1644315428305/work
+Jinja2==3.1.4
+jsonschema==4.23.0
+jsonschema-specifications==2023.12.1
+jupyter_client @ file:///C:/b/abs_059idvdagk/croot/jupyter_client_1680171872444/work
+jupyter_core @ file:///C:/b/abs_9d0ttho3bs/croot/jupyter_core_1679906581955/work
+leather==0.4.0
+Levenshtein==0.26.0
+Logbook==1.5.3
+MarkupSafe==2.1.5
+mashumaro==3.13.1
+matplotlib-inline @ file:///C:/ci/matplotlib-inline_1661934094726/work
+minimal-snowplow-tracker==0.0.2
+mkl-fft==1.3.6
+mkl-random @ file:///C:/Users/dev-admin/mkl/mkl_random_1682977971003/work
+mkl-service==2.4.0
+more-itertools==10.5.0
+msgpack==1.1.0
+nest-asyncio @ file:///C:/b/abs_3a_4jsjlqu/croot/nest-asyncio_1672387322800/work
+networkx==3.3
+numexpr @ file:///C:/b/abs_afm0oewmmt/croot/numexpr_1683221839116/work
+numpy @ file:///C:/b/abs_f6napi3n6e/croot/numpy_and_numpy_base_1691091651337/work
+ordered-set==4.1.0
+outcome==1.3.0.post0
+packaging @ file:///C:/b/abs_ed_kb9w6g4/croot/packaging_1678965418855/work
+pandas @ file:///C:/miniconda3/conda-bld/pandas_1692299636855/work
+parsedatetime==2.6
+parso @ file:///opt/conda/conda-bld/parso_1641458642106/work
+pathspec==0.12.1
+pickleshare @ file:///tmp/build/80754af9/pickleshare_1606932040724/work
+platformdirs @ file:///C:/b/abs_b6z_yqw_ii/croot/platformdirs_1692205479426/work
+prompt-toolkit @ file:///C:/b/abs_6coz5_9f2s/croot/prompt-toolkit_1672387908312/work
+protobuf==4.25.5
+psutil @ file:///C:/Windows/Temp/abs_b2c2fd7f-9fd5-4756-95ea-8aed74d0039flsd9qufz/croots/recipe/psutil_1656431277748/work
+pure-eval @ file:///opt/conda/conda-bld/pure_eval_1646925070566/work
+pyarrow==11.0.0
+pycparser==2.22
+pydantic==2.9.2
+pydantic_core==2.23.4
+Pygments @ file:///C:/b/abs_fay9dpq4n_/croot/pygments_1684279990574/work
+PySocks==1.7.1
+python-dateutil @ file:///tmp/build/80754af9/python-dateutil_1626374649649/work
+python-dotenv==1.0.1
+python-Levenshtein==0.26.0
+python-slugify==8.0.4
+pytimeparse==1.1.8
+pytz @ file:///C:/b/abs_22fofvpn1x/croot/pytz_1671698059864/work
+pywin32==305.1
+PyYAML==6.0.2
+pyzmq @ file:///C:/b/abs_655zk4a3s8/croot/pyzmq_1686601465034/work
+rapidfuzz==3.9.7
+referencing==0.35.1
+requests==2.32.3
+rpds-py==0.20.0
+selenium==4.25.0
+selenium-stealth==1.0.6
+six @ file:///tmp/build/80754af9/six_1644875935023/work
+sniffio==1.3.1
+sortedcontainers==2.4.0
+sqlparse==0.5.1
+stack-data @ file:///opt/conda/conda-bld/stack_data_1646927590127/work
+text-unidecode==1.3
+tornado @ file:///C:/b/abs_61jhmrrua1/croot/tornado_1690848767317/work
+traitlets @ file:///C:/b/abs_e5m_xjjl94/croot/traitlets_1671143896266/work
+trio==0.26.2
+trio-websocket==0.11.1
+typing_extensions==4.12.2
+tzdata @ file:///croot/python-tzdata_1690578112552/work
+urllib3==2.2.3
+wcwidth @ file:///Users/ktietz/demo/mc3/conda-bld/wcwidth_1629357192024/work
+webdriver-manager==4.0.2
+websocket-client==1.8.0
+wsproto==1.2.0
+zipp==3.20.2

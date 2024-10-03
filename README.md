@@ -24,6 +24,7 @@ DuckDB offers several advantages over other transaction database solutions for o
 4.	Flexibility: DuckDB supports multiple data formats natively, reducing the need for extensive data transformation and preprocessing.
 Limitations: DuckDB is not designed for frequent CRUD (create, read, update, and delete) operations, and only one user can write to the DuckDB database at a time (but note many users can read and query simultaneously).  BC Stats is primarily a data analytics shop and our data is not frequently updated so these limitations might be easily mitigated.
 
+---
 
 ## Overview
 
@@ -33,6 +34,8 @@ Previously, we implemented the data engineering part in R. For example, reading 
 
 Now most of data engineering work is moved to `sei_dbt` folder. The instructions are available in `readme.md` in `sei_dbt` folder. 
 
+Some tests in terms of the reading speed are done in `05_comparison_dplyr_duckdb.r`.
+
 ---
 
 ## Project Status
@@ -40,18 +43,22 @@ Now most of data engineering work is moved to `sei_dbt` folder. The instructions
 This project is currently in active development. 
 The core functionality of loading CSV files into DuckDB using dbt is complete. 
 
-Some tests in terms of the reading speed are done in `05_comparison_dplyr_duckdb.r`.
 
+---
 
 ### Getting Help or Reporting an Issue
 
 To report bugs/issues/feature requests, please file an [issue](https://github.com/bcgov/bcstats-duckdb/issues/).
+
+---
 
 ### How to Contribute
 
 If you would like to contribute, please see our [CONTRIBUTING](CONTRIBUTING.md) guidelines.
 
 Please note that this project is released with a [Contributor Code of Conduct](CODE_OF_CONDUCT.md). By participating in this project you agree to abide by its terms.
+
+---
 
 ### License
 
