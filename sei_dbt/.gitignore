@@ -6,3 +6,4 @@ logs/
 *_readme.md
 *.db
 profiles.yml
+output/
