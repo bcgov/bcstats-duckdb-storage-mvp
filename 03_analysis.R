@@ -28,7 +28,8 @@ test_csv_folder = config::get("test_sql_server_csv")
 library(duckdb)
 
 # Connect to the DuckDB database
-con <- dbConnect(duckdb::duckdb(),file.path(test_csv_folder, "db/bcstats_db_prod.duckdb"))
+con <- dbConnect(duckdb::duckdb(),
+                 file.path(test_csv_folder, "db/bcstats_db_dev.duckdb"))
 
 # Fetch the list of tables with 'stg%' prefix
 stg_tables <- dbGetQuery(con, "
@@ -58,13 +59,17 @@ bcstats_read_con <- dbConnect(drv)
 
 
 # Show how many tables in database
-dbListTables(bcstats_read_con)
+all_tbl_list = dbListTables(bcstats_read_con)
 # many tables.
 # list columns/fields in one table
-dbListFields(bcstats_read_con, "fin_neighborhood_incomes")
+dbListFields(bcstats_read_con, "stg_Census_2021_PUMF_data_donnees_2021_ind_v2")
 
 dbListFields(bcstats_read_con, "BC_Stat_CLR_EXT_20230525")
 
+
+# do not forget to disconnect from the database
+duckdb_shutdown(drv)
+dbDisconnect(bcstats_read_con, shutdown = TRUE)
 
 
 
@@ -75,10 +80,18 @@ dbListFields(bcstats_read_con, "BC_Stat_CLR_EXT_20230525")
 # Read data table: method 1. dbplyr
 ########################################################################################
 
-tab_98_401_X2021006_English_CSV_data_BritishColumbia_db = tbl(bcstats_read_con, "tab_98_401_X2021006_English_CSV_data_BritishColumbia_utf8")
+tbl_98_401_X2021006_English_BC_db = tbl(bcstats_read_con, "tbl_98_401_X2021006_English_BC")
 
 
-tab_98_401_X2021006_English_CSV_data_BritishColumbia_db %>%
+tbl_98_401_X2021006_English_BC_db %>%
+  head(4) %>%
+  collect()
+
+
+tbl_98_401_X2021025_English_db = tbl(bcstats_read_con, "tbl_98_401_X2021025_English")
+
+
+tbl_98_401_X2021025_English_db %>%
   head(4) %>%
   collect()
 
