@@ -73,7 +73,7 @@ This approach isolates dependencies, minimizing conflicts across projects.
    
    
 
-2. **Initiate a new project:**
+3. **Initiate a new project:**
 
 If you start a new project from scratch, you can
 
