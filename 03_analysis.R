@@ -62,10 +62,14 @@ bcstats_read_con <- dbConnect(drv)
 all_tbl_list = dbListTables(bcstats_read_con)
 # many tables.
 # list columns/fields in one table
-dbListFields(bcstats_read_con, "tbl_98_401_X2021006_English_BC")
+dbListFields(bcstats_read_con, "stg_Census_2021_PUMF_data_donnees_2021_ind_v2")
 
 dbListFields(bcstats_read_con, "BC_Stat_CLR_EXT_20230525")
 
+
+# do not forget to disconnect from the database
+duckdb_shutdown(drv)
+dbDisconnect(bcstats_read_con, shutdown = TRUE)
 
 
 

@@ -34,8 +34,10 @@ vars:
 
 # add an on-run-end hook in your dbt_project.yml to automatically drop all staging tables at the end of each run:
 on-run-end:
-  - "{% if target.name == 'prod' %} {% for table in (dbt_utils.get_relations_by_prefix(target.schema, 'stg_')) %} {{ log('Dropping table: ' ~ table, info=True) }} DROP VIEW IF EXISTS {{ table }}; {% endfor %} {% endif %}"
-# - **Ensure dbt_utils is Installed**: The `dbt_utils.get_relations_by_prefix()` function is part of the `dbt_utils` package. If you don’t have it installed, you can add it to your `packages.yml`:
+  - "{{ drop_staging_objects() }}"
+
+
+  # - **Ensure dbt_utils is Installed**: The `dbt_utils.get_relations_by_prefix()` function is part of the `dbt_utils` package. If you don’t have it installed, you can add it to your `packages.yml`:
 #
 #   ```yaml
 #   packages:

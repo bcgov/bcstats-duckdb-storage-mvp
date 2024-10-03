@@ -6,8 +6,6 @@ This project is created to load multiple CSV files into a DuckDB database using 
 
 ## Rationale
 
-
-=======
 - **Automated CSV Loading:** Easily load multiple CSV files into DuckDB.
 - **Data Transformation:** Use dbt to perform SQL-based data transformations on the loaded CSVs.
 - **Lightweight Database:** Leverages DuckDB, which is optimized for efficient data processing on local files.
@@ -126,17 +124,17 @@ The `profiles.yml` file is designed for **global or environment-specific configu
 In this `profiles.yml`:
 - We have three environments: `dev`, `test` and `prod`.
 - For each environment, we define:
-  - `external_root`: A variable points to the directory where CSV files or other data are located.  
-  - `dbt-duckdb` only support certain keys in the `profiles.yml`; for example, `external_root`, `settings`, and `config_options`, etc, and each has its own purpose. `custom`, `vars` are not supported. 
+  - `external_root`: A variable points to the directory where CSV files or other data are located. This is important since in this project, most of the CSV files are stored on the LAN whose path should not be hard-code and we need `external_root` to store this path information.
+  - `dbt-duckdb` only support certain keys in the `profiles.yml`; for example, `external_root`, `settings`, and `config_options`, etc, and each has its own purpose. `custom`, `vars` are not supported in `profiles.yml`, but are supported in `dbt-project.yml`. 
    
 #### Key Usage:
-- **Global Connection Configuration**: You use `profiles.yml` to store environment-specific details such as database credentials, which will be applied to all dbt projects that use this profile.
-- **Sensitive Information**: The `profiles.yml` file is the right place to store sensitive information like database credentials, API tokens, or connection settings. It is generally **not version-controlled**, as it may contain secrets.
+- **Sensitive Information**: The `profiles.yml` file is the right place to store sensitive information like database credentials, API tokens, or connection settings. It is generally **not version-controlled**, as it may contain secrets. In this project, 
 - **Multiple Environments**: You can define multiple environments (like `dev`, `prod`, `test`) within `profiles.yml` and switch between them using the `target` option. This is useful when different teams or environments need to connect to different databases or use different credentials.
 
 #### Default Location:
 - The `profiles.yml` file is located by default in `~/.dbt/profiles.yml`, making it global across multiple dbt projects on your local machine. If you use a Windows machine, it could be in `C:\Users\myusername\.dbt`.
 - You can also override this by explicitly specifying the location of `profiles.yml` with the `DBT_PROFILES_DIR` environment variable.
+- In this project, 
 
 
 To **infer variables from `profiles.yml`** in your **dbt model file**, you need to use **Jinja** templating and the `target` object, which exposes information from `profiles.yml`.
@@ -329,6 +327,20 @@ In this setup, the sensitive information is safely stored in `profiles.yml` (suc
    select * from staging.source_csv;
    ```
 
+5. **Removing staging tables or views**
+
+
+Best Practices for Removing Staging Tables
+
+    1. **Use Ephemeral Models**: Set staging models as ephemeral in production to avoid creating unnecessary tables.
+    2. **Use `on-run-end` Hooks**: Automate the cleanup of staging tables after dbt runs by using hooks in `dbt_project.yml`.
+     4. **Manual Cleanup with dbt Operations**: Use dbt macros and `run-operation` commands to manually drop staging tables.
+
+Example:
+
+```bash
+dbt run-operation drop_staging_objects --target prod
+```
 
 
 More instructions can be found from the documents : https://github.com/mehd-io/dbt-duckdb-tutorial/tree/main and https://www.youtube.com/watch?v=asxGh2TrNyI.
