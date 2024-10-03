@@ -169,9 +169,8 @@ final_data AS (
 SELECT * FROM final_data;
 ```
 
-- **`{{ target.vars.data_path }}`**: This Jinja expression accesses the `data_path` variable from `profiles.yml`. When you run dbt with the `--target dev` flag, it will dynamically insert `"data/dev"`, and for `--target prod`, it will insert `"data/prod"`.
+- **`{{ target.external_root }}`**: This Jinja expression accesses the `data_path` variable from `profiles.yml`. When you run dbt with the `--target dev` flag, it will dynamically insert `"data/dev"`, and for `--target prod`, it will insert `"data/prod"`.
 
-In this case, the model will:
 - **Use the `data_path`** defined in `profiles.yml` to load the appropriate CSV file based on the environment (e.g., `data/dev/my_file.csv` in dev, `data/prod/my_file.csv` in prod).
 
 
@@ -202,12 +201,11 @@ vars:
 ```
 
 #### Key Usage:
-- **Variables**: You can define project-specific variables under `vars`. These are useful when you need to reference configuration values in multiple places in your models, macros, or tests.
-  - These variables are **project-specific** and are **not meant to store sensitive information** like database credentials.
-- **Project Paths**: You can configure paths for models, seeds, and snapshots.
-- **Project-specific Settings**: This file defines what dbt will do within the scope of your project. The configurations are highly tailored to that particular project, making it version-controlled and tied to the specific project context.
 
-In this project, we only `models`, `macros` folders. `Log` and `target` folders will be created by the `dbt run`.
+- **Project Paths**: You can configure paths for models, seeds, and snapshots.
+- **Project-specific Settings**: This file defines what `dbt` will do within the scope of your project. The configurations are highly tailored to that particular project, making it version-controlled and tied to the specific project context.
+
+- In this project, we use `models`, `macros` folders. `log`, `dbt_packages` and `target` folders are created by  `dbt run`.
 
 #### Source:
 - [dbt_project.yml Reference](https://docs.getdbt.com/reference/project-configs/dbt_project.yml)
@@ -217,7 +215,7 @@ In this project, we only `models`, `macros` folders. `Log` and `target` folders 
 
 5. **Set up the directory structure:**
 
-   Your dbt project should follow this structure:
+   Your `dbt` project should follow this structure:
 
    ```
    .
@@ -232,6 +230,8 @@ In this project, we only `models`, `macros` folders. `Log` and `target` folders 
    ├── dbt_project.yml          # dbt project configuration
    └── README.md                # This file
    ```
+   
+   Usually, a `dbt init` command will create those folder structure for us. If you clone the repo, the folder structure should be already set for you.
 
 ---
 
@@ -270,6 +270,7 @@ In this project, we only `models`, `macros` folders. `Log` and `target` folders 
    Once your staging models are ready, run dbt to load the CSVs into DuckDB:
 
    ```bash
+   dbt run --target dev  # To run models on the dev database
    dbt run --target test  # To run models on the test database
    dbt run --target prod  # To run models on the production database
    ```
@@ -279,7 +280,7 @@ In this project, we only `models`, `macros` folders. `Log` and `target` folders 
 
 4. **Query the data:**
 
-   After running dbt, you can query your data directly using `DuckDB` or through `dbt` models.
+   After running `dbt`, you can query your data directly using `DuckDB` or through `dbt` models.
 
    Example:
 
@@ -294,13 +295,15 @@ Best Practices for Removing Staging Tables
 
     1. **Use Ephemeral Models**: Set staging models as ephemeral in production to avoid creating unnecessary tables.
     2. **Use `on-run-end` Hooks**: Automate the cleanup of staging tables after dbt runs by using hooks in `dbt_project.yml`.
-     4. **Manual Cleanup with dbt Operations**: Use dbt macros and `run-operation` commands to manually drop staging tables.
+    3. **Manual Cleanup with dbt Operations**: Use dbt macros and `run-operation` commands to manually drop staging tables.
 
 Example:
 
 ```bash
 dbt run-operation drop_staging_objects --target prod
 ```
+
+In this project, we add a `on-run-end` hook in the `dbt-project.yml` to implement the `drop_staging_objects` macro. 
 
 
 More instructions can be found from the documents : https://github.com/mehd-io/dbt-duckdb-tutorial/tree/main and https://www.youtube.com/watch?v=asxGh2TrNyI.
