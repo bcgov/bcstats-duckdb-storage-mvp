@@ -68,7 +68,7 @@ To set up the duckDB database with our raw csv data, first ensure that all csvs 
 
 `./sei_dbt.sh`
 
-Then, to run through the dbt pipeline, simply run a single command:
+Then, to run through the dbt pipeline, simply run a single command (this time from a regular Windows command line where all required python/dbt packages are recognized. If using conda to manage your environment, activate your dbt environment first):
 
 `dbt run`
 
