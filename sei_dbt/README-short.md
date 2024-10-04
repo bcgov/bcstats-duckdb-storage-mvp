@@ -33,7 +33,9 @@ Since this was built using the Python package `dbt-duckdb`, ensure you have the 
     * `pip install dbt-duckdb`
     * `pip install duckdb`
 
-Certain elements of this project also require `dbt` packages. Install required packages from the `packages.yml` file using this command (from the command line):
+Note that instead of using `pip`, you may also choose to install these into a clean conda environment. In this case, any further `dbt` commands should always be run from within that active conda environment. 
+
+Certain elements of this project also require `dbt` packages. Install required packages from the `packages.yml` file using this command (from the command line inside your dbt conda environment):
 * `dbt deps`
 
 
