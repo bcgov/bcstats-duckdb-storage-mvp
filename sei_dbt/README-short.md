@@ -8,20 +8,20 @@ This folder is for a variation on loading data into a duckDB warehouse. While th
 This folder is entirely self-contained, and requires no scripts/knowledge from the main folder. The main contents include:
 
 1. [macros](macros)
-* This folder includes a dbt script for dropping staged objects from the production environment. 
+   * This folder includes a dbt script for dropping staged objects from the production environment. 
 
 2. [models](models)
-* This folder includes both `sql` and `yaml` files:
-    * The `sql` files read CSV files into a duckDB database with the table name equal to the associated sql name
-    * Sql in the staging folder directly reads in raw data, while sql in the models folder manipulates the tables produced in the staging process. 
-    * The `schema.yml` file enforces column names, types, and tests to run when creating tables in the database. 
-    * The `sources.yml` file contains information about the location and description of raw source files. 
+   * This folder includes both `sql` and `yaml` files:
+       * The `sql` files read CSV files into a duckDB database with the table name equal to the associated sql name
+       * Sql in the staging folder directly reads in raw data, while sql in the models folder manipulates the tables produced in the staging process. 
+       * The `schema.yml` file enforces column names, types, and tests to run when creating tables in the database. 
+       * The `sources.yml` file contains information about the location and description of raw source files. 
 
 3. `dbt_projects.yml`:
-* This is the main file that tells dbt what to do when a run command is issued.
+   * This is the main file that tells dbt what to do when a run command is issued.
 
 4. `packages.yml`:
-* This contains dbt packages that are required to fully run the dbt sequence in this project. 
+   * This contains dbt packages that are required to fully run the dbt sequence in this project. 
 
 
 ## Requirements
