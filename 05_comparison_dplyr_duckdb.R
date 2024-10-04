@@ -1,7 +1,7 @@
 # this little script shows that reading information into a database is fraught with error and complexity!
 
 
-csv = 'C:/Users/jduan/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data/98-401-X2021006_English_CSV_data_BritishColumbia-utf8.csv'
+csv = 'raw_data/98-401-X2021006_English_CSV_data_BritishColumbia-utf8.csv'
 
 db <- duckdb::dbConnect(duckdb::duckdb())
 
@@ -36,7 +36,7 @@ dplyr::tbl(db, "mytable") |>
 
 pacman::p_load(tictoc, tidyverse)
 
-csvs = fs::dir_ls("C:/Users/jduan/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data", regexp = "csv$") |>
+csvs = fs::dir_ls("raw_data", regexp = "csv$") |>
   head(5)
 
 exprs_dplyr = list(
