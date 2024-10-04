@@ -9,5 +9,6 @@ config.yml
 
 *.docx
 docs/
+*.html
 
 
