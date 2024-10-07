@@ -2,11 +2,8 @@
 target/
 dbt_packages/
 logs/
-<<<<<<< HEAD
-=======
 *.duckdb
 *_readme.md
 *.db
 profiles.yml
 output/
->>>>>>> dbt
