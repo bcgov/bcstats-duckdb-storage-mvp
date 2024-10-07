@@ -7,13 +7,16 @@
 
 Testing DuckDB as a data storage & query solution.
 
-Code to load multiple (large) CSV files into a [DuckDB](https://duckdb.org) database using [dbt-duckdb](https://github.com/duckdb/dbt-duckdb). DuckDB is used as the local database engine, and dbt orchestrates the loading and transformation process.
+Code to load multiple (large) CSV files into a [DuckDB](https://duckdb.org) database using [dbt-duckdb](https://github.com/duckdb/dbt-duckdb). DuckDB is used as the local database engine, and `dbt` orchestrates the loading and transformation process.
 
 ### Usage
-The current MVP implementation&mdash;a work-in-progress&mdash;is housed in the `sei_dbt` folder, including `readme.md` instructions. The initial MVP was implemented in R ( `01_load_duckdb_cli.sql`, `01_load_duckdb.r`, `01_load_sql_server.r`, and `01_load_sql_sqlite.r`, and `utils.r` in the `utils` folder).
+
+A working MVP for loading multiple CSV files into a DuckDB database using `dbt-duckdb` is located in the `/sei_dbt` folder. See `/sei_dbt/README.md` for details. 
+
+Some initial prototyping and performance testing was implemented using R&mdash;scripts and documentation of this approach are including in the `/r-implementation` folder.
 
 ### Project Status
-This mvp project is currently in active development.
+An MVP project currently in active development.
 
 ### Getting Help or Reporting an Issue
 
