@@ -20,6 +20,38 @@ pacman::p_load(odbc, tidyverse, config, DBI, dbplyr,nanoarrow, arrow, duckdb)
 # import functions from utils.r
 source(file = "./utils/utils.r")
 
+<<<<<<< HEAD:r-implementation/03_analysis.R
+=======
+# Define the path to the test CSV folder
+# This path is retrieved from the configuration file
+test_csv_folder = config::get("test_sql_server_csv")
+
+# Load the DuckDB package
+library(duckdb)
+
+# Connect to the DuckDB database
+con <- dbConnect(duckdb::duckdb(),
+                 file.path(test_csv_folder, "db/bcstats_db_dev.duckdb"))
+
+# Fetch the list of tables with 'stg%' prefix
+stg_tables <- dbGetQuery(con, "
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_name LIKE 'stg%'
+")
+
+# Iterate over the result and drop each table
+for (table_name in stg_tables$table_name) {
+  drop_sql <- paste0("DROP TABLE IF EXISTS ", table_name, ";")
+  print(paste("Executing:", drop_sql))
+  dbExecute(con, drop_sql)  # Execute the drop statement
+}
+
+# Disconnect from the DuckDB database
+dbDisconnect(con, shutdown = TRUE)
+
+#####################################################################
+>>>>>>> dbt:03_analysis.R
 
 # create / connect to database file in another way
 drv <- duckdb(dbdir = file.path(test_csv_folder, "db/bcstats_db.duckdb"),
@@ -27,20 +59,45 @@ drv <- duckdb(dbdir = file.path(test_csv_folder, "db/bcstats_db.duckdb"),
 bcstats_read_con <- dbConnect(drv)
 
 # Show how many tables in database
-dbListTables(bcstats_read_con)
+all_tbl_list = dbListTables(bcstats_read_con)
 # many tables.
 # list columns/fields in one table
+<<<<<<< HEAD:r-implementation/03_analysis.R
 dbListFields(bcstats_read_con, "BC_Stat_Population_Estimates_20240827")
 
 dbListFields(bcstats_read_con, "BC_Stat_CLR_EXT_20230525")
+=======
+dbListFields(bcstats_read_con, "stg_Census_2021_PUMF_data_donnees_2021_ind_v2")
+
+dbListFields(bcstats_read_con, "BC_Stat_CLR_EXT_20230525")
+
+
+# do not forget to disconnect from the database
+duckdb_shutdown(drv)
+dbDisconnect(bcstats_read_con, shutdown = TRUE)
+
+
+
+
+
+
+>>>>>>> dbt:03_analysis.R
 ######################################################################################
 # Read data table: method 1. dbplyr
 ########################################################################################
 
-tab_98_401_X2021006_English_CSV_data_BritishColumbia_db = tbl(bcstats_read_con, "tab_98_401_X2021006_English_CSV_data_BritishColumbia_utf8")
+tbl_98_401_X2021006_English_BC_db = tbl(bcstats_read_con, "tbl_98_401_X2021006_English_BC")
 
 
-tab_98_401_X2021006_English_CSV_data_BritishColumbia_db %>%
+tbl_98_401_X2021006_English_BC_db %>%
+  head(4) %>%
+  collect()
+
+
+tbl_98_401_X2021025_English_db = tbl(bcstats_read_con, "tbl_98_401_X2021025_English")
+
+
+tbl_98_401_X2021025_English_db %>%
   head(4) %>%
   collect()
 
