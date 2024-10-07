@@ -1,7 +1,7 @@
 -- models/staging/stg_statscan_census1.sql
 
 
-    SELECT
+    SELECT 
         -- Convert ASCII columns to UTF-8 here
         CAST(GEO_NAME AS VARCHAR) AS GEO_NAME,
         CAST(CHARACTERISTIC_NAME AS VARCHAR) AS CHARACTERISTIC_NAME,
