@@ -23,10 +23,6 @@
         CAST("C11_RATE_MEN+" AS FLOAT8 ) AS C11_RATE_MEN,
         CAST("C12_RATE_WOMEN+" AS FLOAT8 ) AS C12_RATE_WOMEN
 
-<<<<<<< HEAD:sei_dbt/models/staging/stg_statscan_census1.sql
-    FROM {{ source('external_source', 'table_98_401_X2021025_English_CSV_data') }}
-=======
     FROM read_csv_auto("{{ target.external_root }}/98-401-X2021025_English_CSV_data-utf8.csv")
->>>>>>> dbt:sei_dbt/models/staging/stg_tbl_98_401_X2021025_English.sql
 
 
