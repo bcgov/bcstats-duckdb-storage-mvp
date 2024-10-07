@@ -24,6 +24,14 @@ This folder is entirely self-contained, and requires no scripts/knowledge from t
    * This contains dbt packages that are required to fully run the dbt sequence in this project. 
 
 
+<<<<<<< HEAD
+### Resources:
+- Learn more about dbt [in the docs](https://docs.getdbt.com/docs/introduction)
+- Check out [Discourse](https://discourse.getdbt.com/) for commonly asked questions and answers
+- Join the [chat](https://community.getdbt.com/) on Slack for live discussions and support
+- Find [dbt events](https://events.getdbt.com) near you
+- Check out [the blog](https://blog.getdbt.com/) for the latest news on dbt's development and best practices
+=======
 ## Requirements
 
 Since this was built using the Python package `dbt-duckdb`, ensure you have the following tools installed:
@@ -105,3 +113,4 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+>>>>>>> dbt

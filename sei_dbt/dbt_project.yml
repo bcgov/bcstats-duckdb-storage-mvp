@@ -23,6 +23,8 @@ clean-targets:         # directories to be removed by `dbt clean`
   - "target"
   - "dbt_packages"
 
+<<<<<<< HEAD
+=======
 
 # Project-specific variables
 vars:
@@ -48,6 +50,7 @@ on-run-end:
 #   After adding this, run `dbt deps` to install the package.
 
 
+>>>>>>> dbt
 
 # Configuring models
 # Full documentation: https://docs.getdbt.com/docs/configuring-models
@@ -57,6 +60,12 @@ on-run-end:
 # files using the `{{ config(...) }}` macro.
 models:
   sei_dbt:
+<<<<<<< HEAD
+    # Config indicated by + and applies to all files under models/example/
+    example:
+      +materialized: view
+=======
     # Config indicated by + and applies to all files under models/staging/
     staging:
         +materialized:  "{{ 'ephemeral' if target.name == 'prod' else 'table' }}"  # Use ephemeral materialization for staging in prod env
+>>>>>>> dbt

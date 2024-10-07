@@ -1,4 +1,6 @@
 version: 2
+<<<<<<< HEAD
+=======
 
 models:
   - name: fin_neighborhood_incomes
@@ -106,3 +108,4 @@ tests:
       select count(*)
       from {{ ref('fin_neighborhood_income') }}
       where median_income >= 0
+>>>>>>> dbt

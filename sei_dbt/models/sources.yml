@@ -1,26 +1,20 @@
 version: 2
 
 sources:
-  - name: raw_csv_data
+  - name: external_source
     tables:
       - name: fin_neighborhood_incomes_2021
-        description: "Neighborhood income data from Ministry of Finance for 2021"  # Added space after colon
         meta:
           external_location: "{{ target.external_root }}/FIN - Neighborhood Incomes 2021.csv"
 
       - name: fin_neighborhood_incomes_2016_2020
-        description: "Neighborhood income data from Ministry of Finance for 2016 - 2020"  # Added space after colon
         meta:
-          external_location: "raw_data/FIN - Neighborhood Incomes 2016-2020.csv"
-
+          external_location: 'raw_data/FIN - Neighborhood Incomes 2016-2020.csv'
 
       - name: table_98_401_X2021025_English_CSV_data
-        description: "StatsCan census data for 2021"  # Added space after colon
         meta:
           external_location: 'raw_data/98-401-X2021025_English_CSV_data-utf8.csv'
 
       - name: table_98_401_X2021006_English_CSV_data_BritishColumbia
         meta:
           external_location: 'raw_data/98-401-X2021006_English_CSV_data_BritishColumbia-utf8.csv'
-
-
