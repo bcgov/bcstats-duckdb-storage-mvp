@@ -5,7 +5,7 @@ sources:
     tables:
       - name: fin_neighborhood_incomes_2021
         meta:
-          external_location: "raw_data/FIN - Neighborhood Incomes 2021.csv"
+          external_location: "{{ target.external_root }}/FIN - Neighborhood Incomes 2021.csv"
 
       - name: fin_neighborhood_incomes_2016_2020
         meta:
