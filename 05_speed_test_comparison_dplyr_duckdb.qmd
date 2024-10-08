@@ -48,15 +48,9 @@ In this section, we compare the speed of certain operations between `DuckDB`, `d
 
 We will use the [`tictoc`](https://cran.r-project.org/web/packages/tictoc/index.html) package to get speed timestamps.
 
-First, we load the packages and establish the DuckDB database. (Note that we don't load `duckplyr` directly in order to avoid overwriting `dplyr` methods. See the [duckplyr website](https://duckplyr.tidyverse.org/index.html) for more information.)
+Note that we did not load `duckplyr` directly in order to avoid overwriting `dplyr` methods. See the [duckplyr website](https://duckplyr.tidyverse.org/index.html) for more information.
 
-Next, we print the parameters for this run. (Adjust as needed.) `n_trials` gives the number of times to run the main loop. `nrow_check` gives the starting value for the `nrow.check` parameter of the `duckdb::duckdb_read_csv` function call for the `csv` file that causes errors when read with default values.
-
-```{r}
-params
-```
-
-We will test speeds on the following `csv` files. These are currently saved locally but I'd like to get them from the LAN.
+We will test speeds on the following `csv` files. These are currently saved locally but I'd like to get them from the LAN, since that is where files will be stored.
 
 ```{r}
 csvs = fs::dir_info("csvs") |> 
@@ -76,7 +70,7 @@ birth_yr_mon can't use ym() in DuckDB
 
 ### Issue Reading some `csv` Files
 
-Some `csv` files cannot be read easily into R using DuckDB. For example, in this section, `duckdb::duckdb_read_csv` throws an error using its default values on a particular `csv` file (because it incorrectly reads the `SYMBOL` column as a Boolean. The workaround is to increase the `nrow.check` parameter when `duckdb::duckdb_read_csv` is called.
+Some `csv` files throw errors when being read with DuckDB. For example, in this section, `duckdb::duckdb_read_csv` throws an error using its default values on a particular `csv` file (because it incorrectly reads the `SYMBOL` column as a Boolean.
 
 ```{r}
 #| eval: !expr params$run_boolean_problem
@@ -91,7 +85,7 @@ tryCatch(
 )
 ```
 
-Here, we'll define a function that increases the `nrow.check` parameter when `duckdb::duckdb_read_csv` generates an error. It stops when `duckdb::duckdb_read_csv` succeeds and returns the value of `nrow.check`.
+The following function presents a quick workaround to this problem, that progressively increases the `nrow.check` parameter whenever `duckdb::duckdb_read_csv` throws an error. The function stops when `duckdb::duckdb_read_csv` succeeds and returns the value of `nrow.check`.
 
 ```{r}
 adjust_nrow_check = function(conn, name, files, header, transaction, nrow_check, by, quiet=T) {
@@ -107,6 +101,8 @@ adjust_nrow_check = function(conn, name, files, header, transaction, nrow_check,
   }
 }
 ```
+
+Next, we will find a value for `nrow.check` that works, load the `csv` into the duckDB database, and print a count of the problematic column.
 
 ```{r}
 #| eval: !expr params$run_boolean_problem
@@ -136,7 +132,9 @@ symbol_duckdb
 
 ## Speed Tests
 
-In this section, we run the main speed tests. We will compare the speeds of `dplyr`, `duckplyr` and `DuckDB`. For load times, we will compare R's `read.csv2` function with DuckDB's `read_csv_duckdb`. Each `csv` will be read and have a basic operation performed on it (equivalent to a SQL select query)---these operations are specific to each file, are entirely made up, and are saved as lists of R expressions. `exprs_dplyr` is a list containing the query expressions using `dplyr`.
+In this section, we run the main speed tests. We will compare the speeds of `dplyr`, `duckplyr` and `DuckDB`. For load times, we will compare R's `read.csv2` function with DuckDB's `read_csv_duckdb`. Each `csv` will be read and have a basic operation performed on it (equivalent to a SQL select query)---these operations are specific to each file, are entirely made up, and are saved as characters vectors in the `csvs` dataframe. 
+
+`csvs$exprs_dplyr` contains the queries using `dplyr`.
 
 ```{r}
 csvs$expr_dplyr = c(
@@ -165,11 +163,15 @@ csvs$expr_dplyr = c(
 )
 ```
 
+The other two vectors of queries are equivalents of `csvs$expr_dplyr`:
+
 ```{r}
 csvs$expr_duckplyr = map_chr(csvs$expr_dplyr, ~str_replace(., "as_tibble", "duckplyr::as_duckplyr_tibble"))
 
 csvs$expr_duck_db = map_chr(csvs$expr_dplyr, ~str_replace(., "df\\s+\\|>\\\n\\s+as\\_tibble\\(\\)\\s+", 'tbl(db, "t1") '))
 ```
+
+The following code block runs all the operations and saves the time required for each.
 
 ```{r}
 #| eval: !expr params$run_loop
@@ -285,6 +287,10 @@ This next table gives the mean time for all the events.
 ```{r}
 # means
 results |>
-  group_by(path) |>
-  summarise(across(matches("time"), mean))
+  select(path, size, matches("time")) |>
+  mutate(size = as.character(size)) |>
+  group_by(path, size) |>
+  summarise(across(matches("time"), mean)) |>
+  mutate(across(matches("time"), ~round(., 1))) |>
+  reactable::reactable()
 ```
