@@ -1,41 +1,22 @@
-<!-- 
-Add a project state badge
+<!-- badges: start -->
+[![Lifecycle:Experimental](https://img.shields.io/badge/Lifecycle-Experimental-339999)](https://github.com/bcgov/repomountie/blob/master/doc/lifecycle-badges.md)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/license/apache-2-0/)
+<!-- badges: end -->
 
-See <https://github.com/BCDevExchange/Our-Project-Docs/blob/master/discussion/projectstates.md> 
-If you have bcgovr installed and you use RStudio, click the 'Insert BCDevex Badge' Addin.
--->
+## bcstats-duckdb-storage-mvp
 
-bcstats-duckdb-storage-mvp
-============================
+Testing DuckDB as a data storage & query solution.
 
-## Testing DuckDB as a Data Storage Solution for BC Stats Analytics Teams
-
-### Objectives
-The primary objective of this proposal is to demonstrate the capabilities of DuckDB as a viable alternative to traditional, more costly transactional data management systems. We intend to initiate a small-scale project that will serve as a proof of concept, showcasing DuckDB's efficiency, cost-effectiveness, and ability to handle large, varied datasets. This project will aim to:
-1. Centralize a subset of our large population and demography datasets within DuckDB.
-2. Simplify the process of setting up, linking, querying and analyzing structured, tabular data from multiple sources.
-3. Evaluate DuckDB’s performance in handling complex analytical queries and its integration with existing tools. 
-### Rationale
-DuckDB offers several advantages over other transaction database solutions for our use case:
-1. Cost-Effectiveness: DuckDB is free and open-source, eliminating licensing costs associated with standalone database servers. DuckDB can be hosted on a local or network drive, has no software dependencies and does not require a server.
-2.	Performance: Despite being lightweight, DuckDB is feature-rich and optimized for fast analytical queries and can efficiently handle large datasets (e.g., hundreds of gigabyte-scale).
-3.	Ease of Integration: DuckDB is designed to be easily embedded within various programming environments, making it highly compatible with our existing workflows.
-4.	Flexibility: DuckDB supports multiple data formats natively, reducing the need for extensive data transformation and preprocessing.
-Limitations: DuckDB is not designed for frequent CRUD (create, read, update, and delete) operations, and only one user can write to the DuckDB database at a time (but note many users can read and query simultaneously).  BC Stats is primarily a data analytics shop and our data is not frequently updated so these limitations might be easily mitigated.
-
-
+Code to load multiple (large) CSV files into a [DuckDB](https://duckdb.org) database using [dbt-duckdb](https://github.com/duckdb/dbt-duckdb). DuckDB is used as the local database engine, and `dbt` orchestrates the loading and transformation process.
 
 ### Usage
 
+A working MVP for loading multiple CSV files into a DuckDB database using `dbt-duckdb` is located in the `/sei_dbt` folder. See `/sei_dbt/README.md` for details. 
 
-
-#### Example
-
-
+Some initial prototyping and performance testing was implemented using R&mdash;scripts and documentation of this approach are included in the `/r-implementation` folder. See `/r-implementation/README.md` for details. 
 
 ### Project Status
-
-
+An MVP project currently in active development.
 
 ### Getting Help or Reporting an Issue
 
