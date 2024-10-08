@@ -9,12 +9,11 @@ params:
   nrow_by: !expr 10^6
   run_boolean_problem: no
   run_loop: no
-editor_options: 
-  chunk_output_type: inline
 ---
 
 ```{r setup}
 pacman::p_load(tictoc, tidyverse, duckdb, zeallot)
+csv_path = "G:/Operations/Data Science and Analytics/2024_bcstats_db/csvs"
 ```
 
 # Introduction
@@ -50,11 +49,12 @@ We will use the [`tictoc`](https://cran.r-project.org/web/packages/tictoc/index.
 
 Note that we did not load `duckplyr` directly in order to avoid overwriting `dplyr` methods. See the [duckplyr website](https://duckplyr.tidyverse.org/index.html) for more information.
 
-We will test speeds on the following `csv` files. These are currently saved locally but I'd like to get them from the LAN, since that is where files will be stored.
+We will test speeds on the following `csv` files stored on the LAN.
 
 ```{r}
-csvs = fs::dir_info("csvs") |> 
+csvs = fs::dir_info(csv_path) |> 
   select(path, size) |>
+  mutate(csv = fs::path_file(path), .before=1) |>
   arrange(desc(size))
 
 csvs
@@ -75,7 +75,7 @@ Some `csv` files throw errors when being read with DuckDB. For example, in this 
 ```{r}
 #| eval: !expr params$run_boolean_problem
 
-problematic_csv_path = 'csvs/98-401-X2021006_English_CSV_data_BritishColumbia-utf8.csv'
+problematic_csv_path = csvs$path[[1]]
 db_boolean_problem = duckdb::dbConnect(duckdb::duckdb())
 
 # this gives an error because it thinks the "SYMBOL" column is a boolean
