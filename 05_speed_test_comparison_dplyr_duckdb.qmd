@@ -1,6 +1,5 @@
 ---
-title: "Duck DB, duckplyr and dplyr Speed Comparison Tests"
-author: "Tim H"
+title: "DuckDB Evaluation"
 date: today
 format: html
 toc: true
@@ -9,25 +8,47 @@ params:
   nrow_check: 500
   nrow_by: !expr 10^6
   run_boolean_problem: no
-  run_loop: yes
+  run_loop: no
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
-
-## Introduction
-
-The purpose of this document is to compare the speed of certain operations between `Duck DB`, `duckplyr` and `dplyr` in R. The operations are:
-
-- loading .csv files as standalone R data frames or into a Duck DB database,
-- querying either R data frames using `dbplyr` or `duckplyr` syntax, or querying Duck DB databases.
-
-We will use the [`tictoc`](https://cran.r-project.org/web/packages/tictoc/index.html) package to get speed timestamps.
-
-First, we load the packages and establish the duck DB database. (Note that we don't load `duckplyr` directly in order to avoid overwriting `dplyr` methods. See the [duckplyr website](https://duckplyr.tidyverse.org/index.html) for more information.)
 
 ```{r setup}
 pacman::p_load(tictoc, tidyverse, duckdb, zeallot)
 ```
+
+# Introduction
+
+The purpose of this project is to provide a high-level evaluation of [DuckDB](https://duckdb.org) as a solution for projects involving databases at BC Stats.
+
+# Advantages of DuckDB
+
+Section left blank for Jon.
+
+# Disadvantages of DuckDB
+
+Section left blank for Jon.
+
+# Loading Data into DuckDB
+
+Section left blank for Jon. Note you can use bash scripts here -- maybe useful for embedding the dbt code?
+
+```{bash}
+echo hello jon!!!
+```
+
+# Speed Tests
+
+## Introduction
+
+In this section, we compare the speed of certain operations between `DuckDB`, `duckplyr` and `dplyr` in R. The operations are:
+
+-   loading .csv files as standalone R data frames or into a DuckDB database
+-   querying either R data frames using `dbplyr` or `duckplyr` syntax, or querying DuckDB databases.
+
+We will use the [`tictoc`](https://cran.r-project.org/web/packages/tictoc/index.html) package to get speed timestamps.
+
+First, we load the packages and establish the DuckDB database. (Note that we don't load `duckplyr` directly in order to avoid overwriting `dplyr` methods. See the [duckplyr website](https://duckplyr.tidyverse.org/index.html) for more information.)
 
 Next, we print the parameters for this run. (Adjust as needed.) `n_trials` gives the number of times to run the main loop. `nrow_check` gives the starting value for the `nrow.check` parameter of the `duckdb::duckdb_read_csv` function call for the `csv` file that causes errors when read with default values.
 
@@ -35,7 +56,7 @@ Next, we print the parameters for this run. (Adjust as needed.) `n_trials` gives
 params
 ```
 
-We will test speeds on the following `csv` files:
+We will test speeds on the following `csv` files. These are currently saved locally but I'd like to get them from the LAN.
 
 ```{r}
 csvs = fs::dir_info("csvs") |> 
@@ -45,15 +66,17 @@ csvs = fs::dir_info("csvs") |>
 csvs
 ```
 
-## Issue With Query Consistency
+## Issues
+
+### Issue With Query Consistency
 
 csvs/CLR_EXT_20231227.csv
 
-birth_yr_mon can't use ym() in duck db
+birth_yr_mon can't use ym() in DuckDB
 
-## Issue Reading `csv` Files
+### Issue Reading some `csv` Files
 
-Some `csv` files cannot be read easily into R using Duck DB. For example, in this section, `duckdb::duckdb_read_csv` throws an error using its default values on a particular `csv` file (because it incorrectly reads the `SYMBOL` column as a Boolean. The workaround is to increase the `nrow.check` parameter when `duckdb::duckdb_read_csv` is called.
+Some `csv` files cannot be read easily into R using DuckDB. For example, in this section, `duckdb::duckdb_read_csv` throws an error using its default values on a particular `csv` file (because it incorrectly reads the `SYMBOL` column as a Boolean. The workaround is to increase the `nrow.check` parameter when `duckdb::duckdb_read_csv` is called.
 
 ```{r}
 #| eval: !expr params$run_boolean_problem
@@ -113,7 +136,7 @@ symbol_duckdb
 
 ## Speed Tests
 
-In this section, we run the main speed tests. We will compare the speeds of `dplyr`, `duckplyr` and `Duck DB`. For load times, we will compare R's `read.csv2` function with Duck DB's `read_csv_duckdb`. Each `csv` will be read and have a basic operation performed on it (equivalent to a SQL select query)---these operations are specific to each file, are entirely made up, and are saved as lists of R expressions. `exprs_dplyr` is a list containing the query expressions using `dplyr`.
+In this section, we run the main speed tests. We will compare the speeds of `dplyr`, `duckplyr` and `DuckDB`. For load times, we will compare R's `read.csv2` function with DuckDB's `read_csv_duckdb`. Each `csv` will be read and have a basic operation performed on it (equivalent to a SQL select query)---these operations are specific to each file, are entirely made up, and are saved as lists of R expressions. `exprs_dplyr` is a list containing the query expressions using `dplyr`.
 
 ```{r}
 csvs$expr_dplyr = c(
@@ -121,10 +144,12 @@ csvs$expr_dplyr = c(
     as_tibble() |>
     mutate(C1_COUNT_TOTAL = as.double(C1_COUNT_TOTAL)) |>
     group_by(CENSUS_YEAR, GEO_LEVEL, GEO_NAME) |>
-    summarise(sum(C1_COUNT_TOTAL))",
+    summarise(C1_COUNT_TOTAL = sum(C1_COUNT_TOTAL)) |>
+    arrange(CENSUS_YEAR, GEO_LEVEL, GEO_NAME)",
   "df |>
     as_tibble() |>
-    count(CITY, SEX)",
+    count(CITY, SEX) |>
+    arrange(CITY, SEX)",
   "df |>
     as_tibble() |>
     pull(BIRTH_YR_MON) |>
@@ -132,7 +157,8 @@ csvs$expr_dplyr = c(
     sort()",
   "df |>
     as_tibble() |>
-    count(JURISDICTION, CONVEYANCE_TYPE_DESCRIPTION)",
+    count(JURISDICTION, CONVEYANCE_TYPE_DESCRIPTION) |>
+    arrange(JURISDICTION, CONVEYANCE_TYPE_DESCRIPTION)",
   "df |>
     as_tibble() |>
     summarise(across(everything(), min))"
@@ -144,7 +170,6 @@ csvs$expr_duckplyr = map_chr(csvs$expr_dplyr, ~str_replace(., "as_tibble", "duck
 
 csvs$expr_duck_db = map_chr(csvs$expr_dplyr, ~str_replace(., "df\\s+\\|>\\\n\\s+as\\_tibble\\(\\)\\s+", 'tbl(db, "t1") '))
 ```
-
 
 ```{r}
 #| eval: !expr params$run_loop
@@ -215,7 +240,7 @@ for (i in 1:nrow(results)) {
     results[[i, 'result_duckplyr']] = list(result_duckplyr)
 
     
-    # run the dbplyr expression on the duck db database
+    # run the dbplyr expression on the DuckDB database
     tic()
     result_duck_db = eval(expr_duck_db)
     if (methods::is(result_duck_db, "tbl_lazy")) result_duck_db = collect(result_duck_db) # dbplyr expressions are 'lazy' so the total time to process must include `collect` 
@@ -227,74 +252,39 @@ for (i in 1:nrow(results)) {
 saveRDS(results, "RDS/results.Rds")
 ```
 
+## Results
+
+In this section, we examine the results. First, we check whether the results of the queries were consistent.
 
 ```{r}
 results = readRDS("RDS/results.Rds")
 
-x=results |>
+length_check = results |>
   arrange(path, trial) |>
   select(starts_with("result")) |>
-  apply(2, function(df) {
-    
-  })
-
-
-for (csv in csvs$path) {
-  results_csv = filter(results, path == csv) |>
-    select(starts_with("result"))
+  apply(2, unique)
   
-  unique(results_csv$result_dplyr)
-  unique(results_csv$result_duckplyr)
-  
-  
-  |>
-    as.list()
-  results_csv = do.call(c, results_csv)
-  results_csv = map(results_csv, as_tibble)
-  View(unique(results_csv))
-}
+# this should be TRUE: it checks whether the df's returned from all the trials are identical
+all(map_int(length_check, length) == nrow(csvs)) 
 
-x=results |>
-  select(path, trial, starts_with("result")) |>
-  arrange(path, trial)
+map_int(1:nrow(csvs), function(i) {
+  dfs = list()
+  for (df in length_check) {
+    dfs = append(dfs, df[i])
+  }
+  length(unique(dfs))
+})
 
-identical(results$result_dplyr[[1]], results$result_duckplyr[[1]])
-
-|>
-  head(5) |>
-  pull(result_dplyr)
-
-identical(x[[1]], x[[2]], x[[3]], x[[4]], x[[5]])
-
-# total time (almost)
-# sum(results[, 6:10]) / 60
-# 
-# 
-# # means
-# results |>
-#   group_by(csv) |>
-#   summarise(across(matches("time"), mean))
-# 
-# # means graphed
-# results |>
-#   group_by(csv) |>
-#   summarise(across(matches("time"), mean)) |>
-#   pivot_longer(cols = -1) |>
-#   mutate(is_load = str_detect(name, "load")) |>
-#   ggplot(aes(x=name, y=value, fill=is_load)) +
-#   geom_col() +
-#   facet_wrap(vars(csv), scales='free') +
-#   ggthemes::theme_clean() +
-#   theme(legend.position = 'none')
-# 
-# # snazzy histogram - maybe gives a sense of the distribution of times?
-# results |>
-#   select(n, csv, matches("time")) |>
-#   pivot_longer(cols = 3:7) |>
-#   ggplot(aes(x=value, fill=name)) +
-#   geom_histogram() +
-#   facet_wrap(vars(name, csv), scales='free') +
-#   ggthemes::theme_clean() +
-#   theme(legend.position = 'none')
+# This should be a vector of 1s of length `nrow(csvs)`. It goes line by line and, for each  each csv, returns the number of identical dataframes for each loading procedure. Any number greater than one indicates that there are differences in the loaded dataframes, which is not ideal.
 ```
 
+An informal inspection of these dataframes indicates that the results are **mostly** the same. The differences are mostly due to situations in which, for example, a value is coded as `NA` in one dataframe and 0 in the other.
+
+This next table gives the mean time for all the events.
+
+```{r}
+# means
+results |>
+  group_by(path) |>
+  summarise(across(matches("time"), mean))
+```
