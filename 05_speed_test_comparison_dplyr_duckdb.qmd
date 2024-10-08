@@ -9,6 +9,7 @@ params:
   nrow_check: 500
   nrow_by: !expr 10^6
   run_boolean_problem: no
+  run_loop: yes
 editor_options: 
   chunk_output_type: console
 ---
@@ -73,7 +74,7 @@ Here, we'll define a function that increases the `nrow.check` parameter when `du
 adjust_nrow_check = function(conn, name, files, header, transaction, nrow_check, by, quiet=T) {
   i = nrow_check
   while (T) {
-    if (!quiet) cat("\ni: ", i)
+    if (!quiet) message("\ni: ", i)
     tryCatch({
       duckdb::duckdb_read_csv(conn = conn, name = name, files =  files, header = header, transaction = transaction, nrow.check = i)
       return(i)
@@ -115,32 +116,39 @@ symbol_duckdb
 In this section, we run the main speed tests. We will compare the speeds of `dplyr`, `duckplyr` and `Duck DB`. For load times, we will compare R's `read.csv2` function with Duck DB's `read_csv_duckdb`. Each `csv` will be read and have a basic operation performed on it (equivalent to a SQL select query)---these operations are specific to each file, are entirely made up, and are saved as lists of R expressions. `exprs_dplyr` is a list containing the query expressions using `dplyr`.
 
 ```{r}
-csvs$expr_dplyr = list(
+csvs$expr_dplyr = c(
   "df |>
+    as_tibble() |>
     mutate(C1_COUNT_TOTAL = as.double(C1_COUNT_TOTAL)) |>
     group_by(CENSUS_YEAR, GEO_LEVEL, GEO_NAME) |>
     summarise(sum(C1_COUNT_TOTAL))",
   "df |>
+    as_tibble() |>
     count(CITY, SEX)",
   "df |>
+    as_tibble() |>
     pull(BIRTH_YR_MON) |>
     unique() |>
     sort()",
   "df |>
+    as_tibble() |>
     count(JURISDICTION, CONVEYANCE_TYPE_DESCRIPTION)",
   "df |>
+    as_tibble() |>
     summarise(across(everything(), min))"
 )
 ```
 
 ```{r}
-csvs$expr_duckplyr = map(csvs$expr_dplyr, ~str_replace(., "df |>", "df |>\n    duckplyr::as_duckplyr_tibble()"))
+csvs$expr_duckplyr = map_chr(csvs$expr_dplyr, ~str_replace(., "as_tibble", "duckplyr::as_duckplyr_tibble"))
 
-csvs$expr_duck_db = map(csvs$expr_dplyr, ~str_replace(., "df |>", 'tbl(db, "t1")'))
+csvs$expr_duck_db = map_chr(csvs$expr_dplyr, ~str_replace(., "df\\s+\\|>\\\n\\s+as\\_tibble\\(\\)\\s+", 'tbl(db, "t1") '))
 ```
 
 
 ```{r}
+#| eval: !expr params$run_loop
+
 results = csvs |>
   crossing(trial = 1:params$n_trials) |>
   mutate(
@@ -158,7 +166,7 @@ results = csvs |>
   arrange(trial, path)
 
 for (i in 1:nrow(results)) {
-  cat("\n\niteration:", i, "\ncsv:", results$path[i], "\ntrial:", results$trial[i], "\n\n")
+  message("\n\niteration: ", i, " of ", nrow(results), "\ncsv: ", results$path[i], "\ntrial: ", results$trial[i], " of ", params$n_trials, "\n\n")
 
   expr_dplyr = parse(text = results$expr_dplyr[[i]])
   expr_duckplyr = parse(text = results$expr_duckplyr[[i]])
@@ -214,19 +222,49 @@ for (i in 1:nrow(results)) {
     toc(log = T)
     results[[i, 'eval_time_duck_db']] = as.double(word(tail(tic.log(), 1, 1)))
     results[[i, 'result_duck_db']] = list(result_duck_db)
-    
-  View(results)
-
   }
 
 saveRDS(results, "RDS/results.Rds")
 ```
 
 
-
-
 ```{r}
+results = readRDS("RDS/results.Rds")
 
+x=results |>
+  arrange(path, trial) |>
+  select(starts_with("result")) |>
+  apply(2, function(df) {
+    
+  })
+
+
+for (csv in csvs$path) {
+  results_csv = filter(results, path == csv) |>
+    select(starts_with("result"))
+  
+  unique(results_csv$result_dplyr)
+  unique(results_csv$result_duckplyr)
+  
+  
+  |>
+    as.list()
+  results_csv = do.call(c, results_csv)
+  results_csv = map(results_csv, as_tibble)
+  View(unique(results_csv))
+}
+
+x=results |>
+  select(path, trial, starts_with("result")) |>
+  arrange(path, trial)
+
+identical(results$result_dplyr[[1]], results$result_duckplyr[[1]])
+
+|>
+  head(5) |>
+  pull(result_dplyr)
+
+identical(x[[1]], x[[2]], x[[3]], x[[4]], x[[5]])
 
 # total time (almost)
 # sum(results[, 6:10]) / 60
@@ -258,6 +296,5 @@ saveRDS(results, "RDS/results.Rds")
 #   facet_wrap(vars(name, csv), scales='free') +
 #   ggthemes::theme_clean() +
 #   theme(legend.position = 'none')
-
 ```
 
