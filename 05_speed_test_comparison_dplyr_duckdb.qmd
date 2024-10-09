@@ -4,7 +4,7 @@ date: today
 format: html
 toc: true
 params:
-  n_trials: 4
+  n_trials: 5
   nrow_check: 500
   nrow_by: !expr 10^6
   run_boolean_problem: no
@@ -330,4 +330,3 @@ results |>
   guides(shape = 'none') +
   scale_color_viridis_d(option = "D")
 ```
-
