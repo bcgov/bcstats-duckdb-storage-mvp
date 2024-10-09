@@ -4,7 +4,7 @@ date: today
 format: html
 toc: true
 params:
-  n_trials: 5
+  n_trials: 4
   nrow_check: 500
   nrow_by: !expr 10^6
   run_boolean_problem: no
@@ -16,7 +16,7 @@ pacman::p_load(tictoc, tidyverse, duckdb, zeallot)
 csv_path = "G:/Operations/Data Science and Analytics/2024_bcstats_db/csvs"
 ```
 
-# Introduction
+# Introductions
 
 The purpose of this project is to provide a high-level evaluation of [DuckDB](https://duckdb.org) as a solution for projects involving databases at BC Stats.
 
@@ -251,6 +251,7 @@ for (i in 1:nrow(results)) {
     results[[i, 'result_duck_db']] = list(result_duck_db)
   }
 
+if (!fs::dir_exists("RDS")) fs::dir_create("RDS")
 saveRDS(results, "RDS/results.Rds")
 ```
 
@@ -259,7 +260,9 @@ saveRDS(results, "RDS/results.Rds")
 In this section, we examine the results. First, we check whether the results of the queries were consistent.
 
 ```{r}
-results = readRDS("RDS/results.Rds")
+results = readRDS("RDS/results.Rds") |>
+  mutate(across(matches("time"),  ~./60)) # convet time to minutes
+  
 
 length_check = results |>
   arrange(path, trial) |>
@@ -287,10 +290,44 @@ This next table gives the mean time for all the events.
 ```{r}
 # means
 results |>
-  select(path, size, matches("time")) |>
+  select(csv, size, matches("time")) |>
   mutate(size = as.character(size)) |>
-  group_by(path, size) |>
+  group_by(csv, size) |>
   summarise(across(matches("time"), mean)) |>
   mutate(across(matches("time"), ~round(., 1))) |>
   reactable::reactable()
 ```
+
+
+This graph shows the load times by file
+
+```{r}
+results |>
+  select(csv, trial, load_time_dplyr, load_time_duck_db) |>
+  mutate(trial = as_factor(trial)) |>
+  pivot_longer(cols = 3:4) |>
+  ggplot(aes(fill=name, y=value, x=trial)) +
+  facet_wrap(~csv, scales = 'free_y') +
+  geom_col(position = 'dodge') +
+  ggthemes::theme_clean() +
+  theme(legend.position = 'bottom') +
+  scale_fill_viridis_d(option = "D") +
+  labs(fill=NULL, y="time (min)")
+```
+
+
+This graph gives the load time versus size scatter plot
+
+```{r}
+results |>
+  select(csv, size, load_time_dplyr, load_time_duck_db) |>
+  pivot_longer(cols = 3:4) |>
+  ggplot(aes(x=size, y=value, color=name, shape = csv)) +
+  geom_point(size=3) +
+  ggthemes::theme_clean() +
+  theme(legend.position = 'bottom') +
+  labs(color=NULL, x="file size", y="load time (min)") +
+  guides(shape = 'none') +
+  scale_color_viridis_d(option = "D")
+```
+
