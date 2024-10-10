@@ -8,12 +8,15 @@ params:
   nrow_check: 500
   nrow_by: !expr 10^6
   run_boolean_problem: no
-  run_loop: no
+  run_loop: yes
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup}
-pacman::p_load(tictoc, tidyverse, duckdb, zeallot)
-csv_path = "G:/Operations/Data Science and Analytics/2024_bcstats_db/csvs"
+pacman::p_load(tictoc, tidyverse, duckdb, zeallot, pryr)
+#csv_path = "G:/Operations/Data Science and Analytics/2024_bcstats_db/csvs"
+csv_path = "RDS"
 ```
 
 # Introductions
@@ -52,10 +55,11 @@ Note that we did not load `duckplyr` directly in order to avoid overwriting `dpl
 We will test speeds on the following `csv` files stored on the LAN.
 
 ```{r}
-csvs = fs::dir_info(csv_path) |> 
+csvs = fs::dir_info(csv_path, regexp = "\\.csv$") |> 
   select(path, size) |>
   mutate(csv = fs::path_file(path), .before=1) |>
-  arrange(desc(size))
+  #arrange(desc(size)) |>
+  mutate(csv_id = row_number(), .before=1)
 
 csvs
 ```
@@ -73,16 +77,17 @@ birth_yr_mon can't use ym() in DuckDB
 Some `csv` files throw errors when being read with DuckDB. For example, in this section, `duckdb::duckdb_read_csv` throws an error using its default values on a particular `csv` file (because it incorrectly reads the `SYMBOL` column as a Boolean.
 
 ```{r}
-#| eval: !expr params$run_boolean_problem
+if (params$run_boolean_problem) {
 
-problematic_csv_path = csvs$path[[1]]
-db_boolean_problem = duckdb::dbConnect(duckdb::duckdb())
-
-# this gives an error because it thinks the "SYMBOL" column is a boolean
-tryCatch(
-  duckdb::duckdb_read_csv(db_boolean_problem, name = "test_table", files = problematic_csv_path, header = TRUE, transaction = T),
-  error = function(e) print(e)
-)
+  problematic_csv_path = csvs$path[[1]]
+  db_boolean_problem = duckdb::dbConnect(duckdb::duckdb())
+  
+  # this gives an error because it thinks the "SYMBOL" column is a boolean
+  tryCatch(
+    duckdb::duckdb_read_csv(db_boolean_problem, name = "test_table", files = problematic_csv_path, header = TRUE, transaction = T),
+    error = function(e) print(e)
+  )
+}
 ```
 
 The following function presents a quick workaround to this problem, that progressively increases the `nrow.check` parameter whenever `duckdb::duckdb_read_csv` throws an error. The function stops when `duckdb::duckdb_read_csv` succeeds and returns the value of `nrow.check`.
@@ -105,29 +110,31 @@ adjust_nrow_check = function(conn, name, files, header, transaction, nrow_check,
 Next, we will find a value for `nrow.check` that works, load the `csv` into the duckDB database, and print a count of the problematic column.
 
 ```{r}
-#| eval: !expr params$run_boolean_problem
+if (params$run_boolean_problem) {
 
-i = adjust_nrow_check(conn = db_boolean_problem, name = "test_table", files = problematic_csv_path, header = T, transaction = T, nrow_check = params$nrow_check, by = 500)
-
-cat("The `duckdb::duckdb_read_csv` function works when `nrow.check` ==", i)
-
-symbol_duckdb = tbl(db_boolean_problem, "test_table") |>
-  count(SYMBOL) |>
-  arrange(n) |>
-  collect()
-
-symbol_duckdb
-saveRDS(list(i, symbol_duckdb), "RDS/run_boolean_problem.Rds")
+  i = adjust_nrow_check(conn = db_boolean_problem, name = "test_table", files = problematic_csv_path, header = T, transaction = T, nrow_check = params$nrow_check, by = 500)
+  
+  cat("The `duckdb::duckdb_read_csv` function works when `nrow.check` ==", i)
+  
+  symbol_duckdb = tbl(db_boolean_problem, "test_table") |>
+    count(SYMBOL) |>
+    arrange(n) |>
+    collect()
+  
+  symbol_duckdb
+  saveRDS(list(i, symbol_duckdb), "RDS/run_boolean_problem.Rds")
+}
 ```
 
 ```{r}
-#| eval: !expr ~params$run_boolean_problem
 #| echo: false
 
-c(i, symbol_duckdb) %<-% readRDS("RDS/run_boolean_problem.Rds")
-
-cat("The `duckdb::duckdb_read_csv` function works when `nrow.check` ==", i)
-symbol_duckdb
+if (!params$run_boolean_problem) {
+  c(i, symbol_duckdb) %<-% readRDS("RDS/run_boolean_problem.Rds")
+  
+  cat("The `duckdb::duckdb_read_csv` function works when `nrow.check` ==", i)
+  symbol_duckdb
+}
 ```
 
 ## Speed Tests
@@ -137,12 +144,17 @@ In this section, we run the main speed tests. We will compare the speeds of `dpl
 `csvs$exprs_dplyr` contains the queries using `dplyr`.
 
 ```{r}
-csvs$expr_dplyr = c(
+queries = list(
+  r = list(),
+  duckDB = list()
+)
+
+queries$r$query_dplyr = c(
   "df |>
     as_tibble() |>
     mutate(C1_COUNT_TOTAL = as.double(C1_COUNT_TOTAL)) |>
     group_by(CENSUS_YEAR, GEO_LEVEL, GEO_NAME) |>
-    summarise(C1_COUNT_TOTAL = sum(C1_COUNT_TOTAL)) |>
+    summarise(C1_COUNT_TOTAL = sum(C1_COUNT_TOTAL), .groups='drop') |>
     arrange(CENSUS_YEAR, GEO_LEVEL, GEO_NAME)",
   "df |>
     as_tibble() |>
@@ -150,9 +162,8 @@ csvs$expr_dplyr = c(
     arrange(CITY, SEX)",
   "df |>
     as_tibble() |>
-    pull(BIRTH_YR_MON) |>
-    unique() |>
-    sort()",
+    select(BIRTH_YR_MON) |>
+    arrange(BIRTH_YR_MON)",
   "df |>
     as_tibble() |>
     count(JURISDICTION, CONVEYANCE_TYPE_DESCRIPTION) |>
@@ -166,94 +177,103 @@ csvs$expr_dplyr = c(
 The other two vectors of queries are equivalents of `csvs$expr_dplyr`:
 
 ```{r}
-csvs$expr_duckplyr = map_chr(csvs$expr_dplyr, ~str_replace(., "as_tibble", "duckplyr::as_duckplyr_tibble"))
+queries$r$query_duckplyr = map_chr(queries$r$query_dplyr, ~str_replace(., "as_tibble", "duckplyr::as_duckplyr_tibble"))
 
-csvs$expr_duck_db = map_chr(csvs$expr_dplyr, ~str_replace(., "df\\s+\\|>\\\n\\s+as\\_tibble\\(\\)\\s+", 'tbl(db, "t1") '))
+queries$duckDB$query_duckDB = map_chr(queries$r$query_dplyr, ~str_replace(., "df\\s+\\|>\\\n\\s+as\\_tibble\\(\\)\\s+", 'tbl(db, "t1") ')) |> paste(" |>\n  collect()")
+
+# queries = map(queries, function(q) map(q, ~parse(text = .))) |>
+#   as_tibble() |>
+#   mutate(query_id = row_number(), .before=1)
+
+#stopifnot(nrow(queries) == nrow(csvs))
+
+stopifnot(all(map(flatten(queries), length) == nrow(csvs)))
 ```
 
-The following code block runs all the operations and saves the time required for each.
+The following code blocks define some helper functions and then run all the operations and saves the time required for each.
+
+```{r}
+# run a function on an object and return the function's output as well as the time of running it
+time_function = function(fn, params) {
+  tic()
+  out = do.call(fn, params)
+  toc(log = T, quiet = T)
+  time = as.double(word(tail(tic.log(), 1, 1)))
+  list(object = out, time = time)
+}
+
+read_duckDB = function(name = "t1", files, delim = ',', header = T, transaction = T) {
+    tryCatch(duckdb::duckdb_read_csv(conn = db, name = "t1", files = csvs_i$path, delim = delim, header = header, transaction = transaction), error = function(e) duckdb::duckdb_read_csv(conn = db, name = "t1", files = csvs_i$path, delim = delim, header = header, transaction = transaction, nrow.check = Inf))
+  }
+```
+
+
+```{r}
+trials = csvs |>
+  select(csv_id) |>
+  crossing(trial_id = 1:params$n_trials) |>
+  arrange(trial_id, csv_id)
+
+trials
+```
 
 ```{r}
 #| eval: !expr params$run_loop
 
-results = csvs |>
-  crossing(trial = 1:params$n_trials) |>
-  mutate(
-    nrow = NA_integer_,
-    load_time_dplyr = NA_real_,
-    load_time_nrow_check = NA_real_,
-    load_time_duck_db = NA_real_,
-    eval_time_dplyr = NA_real_,
-    eval_time_duckplyr = NA_real_,
-    eval_time_duck_db = NA_real_,
-    result_dplyr = NA,
-    result_duckplyr = NA,
-    result_duck_db = NA
-  ) |>
-  arrange(trial, path)
+results = tibble()
 
-for (i in 1:nrow(results)) {
-  message("\n\niteration: ", i, " of ", nrow(results), "\ncsv: ", results$path[i], "\ntrial: ", results$trial[i], " of ", params$n_trials, "\n\n")
-
-  expr_dplyr = parse(text = results$expr_dplyr[[i]])
-  expr_duckplyr = parse(text = results$expr_duckplyr[[i]])
-  expr_duck_db = parse(text = results$expr_duck_db[[i]])
-
-  # read the csv into memory in R
-  tic()
-  df = read.csv2(results$path[i], sep = ",", quote = "\"", na.strings = "")
-  toc(log = T)
-  results[[i, 'load_time_dplyr']] = as.double(word(tail(tic.log(), 1, 1)))
-    
-  results[[i, 'nrow']] = nrow(df)
-
-  # read the csv into the duck database
+for (i in 1:nrow(trials)) {
+  csvs_i = filter(csvs, csv_id == trials[[i, 'csv_id']])
+  
+  queries_i_r = lapply(queries$r, function(x) parse(text = x[[trials$csv_id[i]]]))
+  queries_i_duckDB = lapply(queries$duckDB, function(x) parse(text = x[[trials$csv_id[i]]]))
+  
+  message("\n\niteration: ", i, " of ", nrow(trials), "\ncsv: ", csvs_i$csv, "\ntrial: ", trials$trial_id[i], " of ", params$n_trials, "\n\n")
+  
+  # load df into R
+  c(df, load_time_df) %<-% time_function(fn = read.csv2, params = list(file = csvs_i$path, sep = ";", quote = "\"", na.strings = ""))
+  
+  # load duckDB
   db = duckdb::dbConnect(duckdb::duckdb())
-  tryCatch({
-    tic()
-    duckdb::duckdb_read_csv(db, name = "t1", files = results$path[i], header = TRUE, transaction = T)
-    toc(log = T)
-    results[[i, 'load_time_duck_db']] = as.double(word(tail(tic.log(), 1, 1)))
-    }, error = function(e) {
-      toc()
-      db_problem = duckdb::dbConnect(duckdb::duckdb())
-      tic()
-      n_row = adjust_nrow_check(conn = db_problem, name = "test_table", files = results$path[i], header = T, transaction = T, nrow_check = params$nrow_check, by = params$nrow_by, quiet = T)
-      toc(log = T)
-      results[[i, 'load_time_nrow_check']] <<- as.double(word(tail(tic.log(), 1, 1)))
-      tic()
-      duckdb::duckdb_read_csv(db, name = "t1", files = results$path[i], header = TRUE, transaction = T, nrow.check = n_row)
-      toc(log = T)
-      results[[i, 'load_time_duck_db']] <<- as.double(word(tail(tic.log(), 1, 1)))
-    })
-      
-    # run a dplyr expression on the df
-    tic()
-    result_dplyr = eval(expr_dplyr)
-    toc(log = T)
-    results[[i, 'eval_time_dplyr']] = as.double(word(tail(tic.log(), 1, 1)))
-    results[[i, 'result_dplyr']] = list(result_dplyr)
-
-    # run a duckplyr expression on the df
-    tic()
-    result_duckplyr = eval(expr_duckplyr)
-    toc(log = T)
-    results[[i, 'eval_time_duckplyr']] = as.double(word(tail(tic.log(), 1, 1)))
-    results[[i, 'result_duckplyr']] = list(result_duckplyr)
-
+  c(db_return_code, load_time_duckDB) %<-% time_function(fn = read_duckDB, params = list(name = "t1", files = csvs_i$path, delim = ';', header = T, transaction = T))
+  
+  # run queries on the R dataframe
+  queries_r = map(queries_i_r, ~time_function(eval, list(.)))
+  
+  # run queries on the duckDB db
+  queries_duckDB = map(queries_i_duckDB, ~time_function(eval, list(.)))
+  
+  size_df = object_size(df)
+  size_duckDB = object_size(db)
+  
+  results_i = tibble_row(
+    trials[i, ],
     
-    # run the dbplyr expression on the DuckDB database
-    tic()
-    result_duck_db = eval(expr_duck_db)
-    if (methods::is(result_duck_db, "tbl_lazy")) result_duck_db = collect(result_duck_db) # dbplyr expressions are 'lazy' so the total time to process must include `collect` 
-    toc(log = T)
-    results[[i, 'eval_time_duck_db']] = as.double(word(tail(tic.log(), 1, 1)))
-    results[[i, 'result_duck_db']] = list(result_duck_db)
-  }
+    load_time_df = load_time_df, 
+    load_time_duckDB = duckDB_load_time,
+    
+    eval_time_dplyr = queries_r$query_dplyr$time,
+    eval_time_duckplyr = queries_r$query_duckplyr$time,
+    eval_time_duckDB = queries_duckDB$query_duckDB$time,
+    
+    result_dplyr = list(queries_r$query_dplyr$object), 
+    result_duckplyr = list(queries_r$query_duckplyr$object), 
+    result_duckDB = list(queries_duckDB$query_duckDB$object), 
+    
+    size_df = list(size_df), 
+    size_duckDB = list(size_duckDB)
+  )
+  
+  results = bind_rows(results, results_i)
+  
+  dbDisconnect(db)
+}
 
 if (!fs::dir_exists("RDS")) fs::dir_create("RDS")
 saveRDS(results, "RDS/results.Rds")
 ```
+
+
 
 ## Results
 
@@ -263,7 +283,6 @@ In this section, we examine the results. First, we check whether the results of 
 results = readRDS("RDS/results.Rds") |>
   mutate(across(matches("time"),  ~./60)) # convet time to minutes
   
-
 length_check = results |>
   arrange(path, trial) |>
   select(starts_with("result")) |>
@@ -290,6 +309,7 @@ This next table gives the mean time for all the events.
 ```{r}
 # means
 results |>
+  inner_join(csvs) |>
   select(csv, size, matches("time")) |>
   mutate(size = as.character(size)) |>
   group_by(csv, size) |>
@@ -298,12 +318,11 @@ results |>
   reactable::reactable()
 ```
 
-
-This graph shows the load times by file
+This graph shows the load times by file.
 
 ```{r}
 results |>
-  select(csv, trial, load_time_dplyr, load_time_duck_db) |>
+  select(csv, trial, load_time_dplyr, load_time_duckDB) |>
   mutate(trial = as_factor(trial)) |>
   pivot_longer(cols = 3:4) |>
   ggplot(aes(fill=name, y=value, x=trial)) +
@@ -315,12 +334,11 @@ results |>
   labs(fill=NULL, y="time (min)")
 ```
 
-
-This graph gives the load time versus size scatter plot
+This graph gives the load time versus size scatter plot.
 
 ```{r}
 results |>
-  select(csv, size, load_time_dplyr, load_time_duck_db) |>
+  select(csv, size, load_time_dplyr, load_time_duckDB) |>
   pivot_longer(cols = 3:4) |>
   ggplot(aes(x=size, y=value, color=name, shape = csv)) +
   geom_point(size=3) +
