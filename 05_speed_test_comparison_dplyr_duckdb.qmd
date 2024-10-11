@@ -180,7 +180,7 @@ for (i in 1:nrow(trials)) {
   # load duckDB
   message("loading duckDB")
   db = duckdb::dbConnect(duckdb::duckdb())
-  c(db_return_code, load_time_duckDB) %<-% time_function(fn = read_duckDB, params = list(name = "t1", files = csvs_i$path, delim = ';', header = T, transaction = T))
+  c(db_return_code, load_time_duckDB) %<-% time_function(fn = read_duckDB, params = list(name = "t1", files = csvs_i$path, header = T, transaction = T))
   
   # run queries on the R dataframe
   message("running queries on R")
@@ -197,7 +197,7 @@ for (i in 1:nrow(trials)) {
     trials[i, ],
     
     load_time_df = load_time_df, 
-    load_time_duckDB = duckDB_load_time,
+    load_time_duckDB = load_time_duckDB,
     
     eval_time_dplyr = queries_r$query_dplyr$time,
     eval_time_duckplyr = queries_r$query_duckplyr$time,
