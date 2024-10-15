@@ -5,25 +5,11 @@ format: html
 toc: true
 params:
   n_trials: 5
-  n_max: !r Inf
+  n_max: r! Inf
   run_loop: no
 editor_options: 
   chunk_output_type: console
 ---
-
-```{r setup}
-pacman::p_load(tictoc, tidyverse, duckdb, zeallot, pryr, readr)
-
-csv_path = "G:/Operations/Data Science and Analytics/2024_bcstats_db/csvs"
-
-csv_names = c(
-  "98-401-X2021006_English_CSV_data_BritishColumbia-utf8.csv",
-  "BC Stat Population Estimates_20240429.csv",
-  "CLR_EXT_20231227.csv",
-  "bca_folio_gnrl_property_values_20240825_WEEKLY.csv",
-  "bca_folio_sales_20240825_WEEKLY.csv"
-)
-```
 
 # Introductions
 
@@ -48,6 +34,20 @@ Section left blank for Jon. Note you can use bash scripts here -- maybe useful f
 # Speed Tests
 
 ## Introduction
+
+```{r setup}
+pacman::p_load(tictoc, tidyverse, duckdb, zeallot, pryr, readr)
+
+csv_path = "G:/Operations/Data Science and Analytics/2024_bcstats_db/csvs"
+
+csv_names = c(
+  "98-401-X2021006_English_CSV_data_BritishColumbia-utf8.csv",
+  "BC Stat Population Estimates_20240429.csv",
+  "CLR_EXT_20231227.csv",
+  "bca_folio_gnrl_property_values_20240825_WEEKLY.csv",
+  "bca_folio_sales_20240825_WEEKLY.csv"
+)
+```
 
 In this section, we compare the speed of certain operations between `DuckDB`, `duckplyr` and `dplyr` in R. The operations are:
 
@@ -75,15 +75,9 @@ csvs
 
 ## Issues
 
-### Issue With Query Consistency
-
-csvs/CLR_EXT_20231227.csv
-
-birth_yr_mon can't use ym() in DuckDB
-
 ### Issue Reading some `csv` Files
 
-Some `csv` files throw errors when being read with DuckDB. For example, in this section, `duckdb::duckdb_read_csv` throws an error using its default values on a particular `csv` file (because it incorrectly reads the `SYMBOL` column as a Boolean.
+Some `csv` files throw errors when being read with DuckDB using default parameters due to incorrect inference of a column type. The solution to this problem is to increase the `nrow.check` parameter when `duckdb::read_csv_duckdb` is called. In this project, we'll first try to read each csv using default parameters, and if it fails, we'll try again using `nrow.check = params$n_max`. 
 
 ## Speed Tests
 
@@ -147,12 +141,12 @@ time_function = function(fn, params) {
 read_r = function(file, quote = "\"") time_function(fn = readr::read_csv, params = list(file = file, quote = quote))
 
 # the function to read a csv using readr::read_csv. It tries to read the csv using the default nrow.check value; if that fails, it increases nrow.check to params$n_max
-read_duckDB = function(name = "t1", files, delim = ',', header = T, transaction = T) {
+read_duckDB = function(name = "t1", files, delim = ',', quote = "\"", header = T, transaction = T) {
     tryCatch({
-      output = time_function(duckdb::duckdb_read_csv, params = list(conn = db, name = name, files = files, delim = delim, header = header, transaction = transaction))
+      output = time_function(duckdb::duckdb_read_csv, params = list(conn = db, name = name, files = files, delim = delim, quote = quote, header = header, transaction = transaction))
       return(list(db_return_code = output$object, time = output$time, failed = F))
     }, error = function(e) {
-      output = time_function(duckdb::duckdb_read_csv, params = list(conn = db, name = name, files = files, delim = delim, header = header, transaction = transaction, nrow.check = params$n_max))
+      output = time_function(duckdb::duckdb_read_csv, params = list(conn = db, name = name, files = files, delim = delim, quote = quote, header = header, transaction = transaction, nrow.check = params$n_max))
     return(list(db_return_code = output$object, time = output$time, failed = T))
     }
   )

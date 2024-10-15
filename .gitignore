@@ -11,3 +11,4 @@ docs
 csvs
 RDS
 *.html
+*_files
