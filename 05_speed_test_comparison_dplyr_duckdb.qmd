@@ -5,7 +5,6 @@ format: html
 toc: true
 params:
   n_trials: 5
-  n_max: r! Inf
   run_loop: no
 editor_options: 
   chunk_output_type: console
@@ -140,13 +139,13 @@ time_function = function(fn, params) {
 # the function to read a csv using readr::read_csv
 read_r = function(file, quote = "\"") time_function(fn = readr::read_csv, params = list(file = file, quote = quote))
 
-# the function to read a csv using readr::read_csv. It tries to read the csv using the default nrow.check value; if that fails, it increases nrow.check to params$n_max
+# the function to read a csv using readr::read_csv. It tries to read the csv using the default nrow.check value; if that fails, it increases nrow.check to infinity
 read_duckDB = function(name = "t1", files, delim = ',', quote = "\"", header = T, transaction = T) {
     tryCatch({
       output = time_function(duckdb::duckdb_read_csv, params = list(conn = db, name = name, files = files, delim = delim, quote = quote, header = header, transaction = transaction))
       return(list(db_return_code = output$object, time = output$time, failed = F))
     }, error = function(e) {
-      output = time_function(duckdb::duckdb_read_csv, params = list(conn = db, name = name, files = files, delim = delim, quote = quote, header = header, transaction = transaction, nrow.check = params$n_max))
+      output = time_function(duckdb::duckdb_read_csv, params = list(conn = db, name = name, files = files, delim = delim, quote = quote, header = header, transaction = transaction, nrow.check = Inf))
     return(list(db_return_code = output$object, time = output$time, failed = T))
     }
   )
@@ -184,15 +183,15 @@ for (i in 1:nrow(trials)) {
   
   # run queries on the R dataframe
   message("running queries on R")
-  queries_r = map(queries_i_r, ~time_function(eval, list(.)))
+  results_r = map(queries_i_r, ~time_function(eval, list(.)))
   
   # run queries on the duckDB db
   message("running queries on duckDB")
-  queries_duckDB = map(queries_i_duckDB, ~time_function(eval, list(.)))
+  results_duckDB = map(queries_i_duckDB, ~time_function(eval, list(.)))
   
   size_df = object_size(df)
   size_duckDB = object_size(db)
-  
+
   results_i = tibble_row(
     trials[i, ],
     
@@ -200,13 +199,13 @@ for (i in 1:nrow(trials)) {
     load_time_duckDB = load_time_duckDB,
     duckDB_failed_first_try = duckDB_failed_first_try,
     
-    eval_time_dplyr = queries_r$query_dplyr$time,
-    eval_time_duckplyr = queries_r$query_duckplyr$time,
-    eval_time_duckDB = queries_duckDB$query_duckDB$time,
+    eval_time_dplyr = results_r$dplyr$time,
+    eval_time_duckplyr = results_r$duckplyr$time,
+    eval_time_duckDB = results_duckDB$duckDB$time,
     
-    result_dplyr = list(queries_r$query_dplyr$object), 
-    result_duckplyr = list(queries_r$query_duckplyr$object), 
-    result_duckDB = list(queries_duckDB$query_duckDB$object), 
+    result_dplyr = list(results_r$dplyr$object), 
+    result_duckplyr = list(results_r$duckplyr$object), 
+    result_duckDB = list(results_duckDB$duckDB$object),
     
     size_df = list(size_df), 
     size_duckDB = list(size_duckDB)
