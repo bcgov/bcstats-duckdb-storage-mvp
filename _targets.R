@@ -59,6 +59,8 @@ params = list(
 the_plan = get_csvs(params$csv_path, params$csvs) |>
   crossing(iteration = 1:params$n_iterations)
 
+saveRDS(the_plan, "RDS/the_plan.Rds")
+
 # we make two targets, one for `read_csv` and the other for duckDB. In each target, we first read the data and then run the queries. For `read_csv` there are two query runs: one with just "regular" dplyr and the other with `duckplyr`.
 
 list(
