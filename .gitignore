@@ -13,4 +13,4 @@ RDS
 *.html
 *_files
 .Renviron
-_targets
+_targets/
