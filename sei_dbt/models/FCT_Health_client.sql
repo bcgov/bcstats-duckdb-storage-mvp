@@ -1,7 +1,10 @@
 -- models/fin_neighborhood_incomes.sql
 {{ config(materialized='table') }}
 
-
+SELECT * FROM {{ ref('stg_FCT_Health_client_202302') }}
+UNION ALL
+SELECT * FROM {{ ref('stg_FCT_Health_client_202303') }}
+UNION ALL
 SELECT * FROM {{ ref('stg_FCT_Health_client_202304') }}
 UNION ALL
 SELECT * FROM {{ ref('stg_FCT_Health_client_202305') }}

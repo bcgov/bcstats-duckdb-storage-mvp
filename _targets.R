@@ -24,7 +24,7 @@ params = list(
   # a tibble that gives the directory to read from as well as a name (eg LAN or OneDrive)
   csv_paths = tibble::tribble(~dir, ~source,
     "G:/Operations/Data Science and Analytics/2024_bcstats_db/csvs", "LAN",
-    "C:/Users/thister/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data", "OneDrive"),
+    "C:/Users/jduan/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse/raw_data", "OneDrive"),
 
   # a tibble with the CSVs to read as well as a query to run on them to time
   csvs = tibble::tribble(~csv, ~base_query,
@@ -56,7 +56,7 @@ params = list(
 )
 
 # I wanted to make this a target but it was not possible to iterate over it (using `pattern`) and get reasonable names, so I make it a global object instead
-the_plan = get_csvs(params$csv_path, params$csvs) |>
+the_plan = get_csvs(params$csv_paths, params$csvs) |>
   crossing(iteration = 1:params$n_iterations)
 
 saveRDS(the_plan, "RDS/the_plan.Rds")
