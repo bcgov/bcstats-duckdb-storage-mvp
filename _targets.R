@@ -10,7 +10,9 @@
 # Also, note that my use of targets here was not a complete success. A lot of that reason is that making and reading databases is finicky. You will see, for example, a few instances in which I create/remove the file db.duckdb -- this is because I got lots of errors trying to just run the loops and do 'normal' things in R.
 
 # run this if you want to copy the _targets folder over to onedrive
-# fs::dir_copy("_targets", params$paths[['OneDrive']], overwrite = T)
+# fs::dir_copy("_targets", paste0(params$paths[['OneDrive']], "_targets"), overwrite = T)
+
+fs::dir_copy(path = "_targets", new_path = params$paths[['OneDrive']])
 
 pacman::p_load(targets, tarchetypes, tidyverse)
 
