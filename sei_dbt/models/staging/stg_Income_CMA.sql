@@ -6,22 +6,27 @@ WITH loaded_data AS (
     SELECT *
     FROM read_csv_auto(
         '{{ target.external_root }}/Income_CMA.csv', 
-        columns={'REF_DATE': 'VARCHAR'}
+        types={'REF_DATE': 'VARCHAR'}
     )
 
 ),
 
 transformed_data AS (
 
-    -- Replace spaces with underscores in "REF DATE" column
+    -- Replace spaces with underscores in "some column" column name
     SELECT 
-        REPLACE("Census family type", ' ', '_') AS Census_family_type,
-        REPLACE("Family type composition", ' ', '_') AS Family_type_composition,
+        REF_DATE,
+        GEO,
+        DGUID,
+        "Census family type" AS Census_family_type,
+        "Family type composition" AS Family_type_composition,
         -- Select other columns as needed
-        *
+        Statistics,
+        VALUE
+
     FROM loaded_data
 
 )
 
-SELECT * FROM transformed_data;
+SELECT * FROM transformed_data
 
