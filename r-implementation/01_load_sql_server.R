@@ -84,7 +84,7 @@ dbGetInfo(ms_sql_con)
 #   sp_rename 'old_table_name','new_table_name';
 
 # rename new data by remove "day"
-# DBI::dbExecute(con, "exec sp_rename 'IDIR\\JDUAN.BC_Stat_CLR_EXT_20230525', 'BC_Stat_CLR_EXT_202305' ;")
+# DBI::dbExecute(con, "exec sp_rename '.BC_Stat_CLR_EXT_20230525', 'BC_Stat_CLR_EXT_202305' ;")
 
 # dbWriteTableArrow()
 # # Copy Arrow objects to database tables
@@ -117,7 +117,7 @@ DBI::dbWriteTableArrow(
 )
 
 # this one simple table works, and other tables work in duckdb, but do not work in ms sql server. And error messages were not clear.
-# errors are similar to Bret's error
+# errors are similar to his error
 #
 # [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionWrite (send()).
 # [Microsoft][ODBC SQL Server Driver][DBNETLIB]General network error. Check your network documentation.
@@ -221,7 +221,7 @@ tbl_name = "FCT_CENSUS_2021_BC_DA"
 print("Put your query in a string")
 
 
-# FCT_TMF_202312_tbl = tbl(con, "[IDRI\\BDWILMER].FCT_TMF_202312")
+# FCT_TMF_202312_tbl = tbl(con, "FCT_TMF_202312")
 
 FCT_TMF_202312_tbl = read_sql_query(con, tbl_name, table_prefix)
 FCT_TMF_202312_tbl %>% glimpse()
@@ -232,13 +232,13 @@ FCT_TMF_202312_tbl %>% glimpse()
 my_query = "with first_year as
 (
 select distinct LHA as FY_LHA, study_id as FY_study_id
-from [IDIR\JDUAN].[BC_Stat_CLR_EXT_202304]
+from [BC_Stat_CLR_EXT_202304]
 ),
 
 second_year as
 (
 select distinct LHA as SY_LHA, study_id as SY_study_id
-from [IDIR\JDUAN].[BC_Stat_Population_Estimates_202404]
+from [BC_Stat_Population_Estimates_202404]
 where end_date>='2024-04-01' or end_date is null
 ),
 
@@ -246,7 +246,7 @@ total_pop as
 (
 select LHA as SY_LHA,
 count(distinct(study_id)) as SY_study_id
-from [IDIR\JDUAN].[BC_Stat_Population_Estimates_202404]
+from [BC_Stat_Population_Estimates_202404]
 where end_date>='2024-04-01' or end_date is null
 group by LHA
 ),
@@ -255,7 +255,7 @@ first_pop as
 (
 select LHA as SY_LHA,
 count(distinct(study_id)) as FY_study_id
-from [IDIR\JDUAN].[BC_Stat_CLR_EXT_202304]
+from [BC_Stat_CLR_EXT_202304]
 --where end_date>='2023-07-01' or end_date is null
 group by LHA
 ),
