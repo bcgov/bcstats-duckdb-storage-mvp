@@ -3,7 +3,7 @@
         {% set relations = dbt_utils.get_relations_by_prefix(target.schema, 'stg_') %}
         {% for relation in relations %}
             {% set relation_name = relation.identifier %}
-            {% set relation_type = relation.relation_type %}  -- Capture relation type
+            {% set relation_type = relation.type %}  -- Try using relation.type directly
             
             {{ log('Dropping relation: ' ~ relation_name ~ ' of type: ' ~ relation_type, info=True) }}
             
