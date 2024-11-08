@@ -3,6 +3,8 @@
 
 SELECT * FROM {{ ref('stg_FCT_Health_client_202301') }}
 UNION ALL
+SELECT * FROM {{ ref('stg_FCT_Health_client_202302') }}
+UNION ALL
 SELECT * FROM {{ ref('stg_FCT_Health_client_202303') }}
 UNION ALL
 SELECT * FROM {{ ref('stg_FCT_Health_client_202304') }}

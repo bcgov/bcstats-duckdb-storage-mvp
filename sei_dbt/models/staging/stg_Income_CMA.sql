@@ -6,7 +6,9 @@ WITH loaded_data AS (
     SELECT *
     FROM read_csv_auto(
         '{{ target.external_root }}/Income_CMA.csv', 
-        types={'REF_DATE': 'VARCHAR'}
+        types={'REF_DATE': 'VARCHAR'},
+        --all_varchar = true
+        ignore_errors=true
     )
 
 ),

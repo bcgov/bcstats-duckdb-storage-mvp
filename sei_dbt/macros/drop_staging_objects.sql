@@ -3,16 +3,14 @@
         {% set relations = dbt_utils.get_relations_by_prefix(target.schema, 'stg_') %}
         {% for relation in relations %}
             {% set relation_name = relation.identifier %}
-            {% set relation_type = relation.type %}  -- Try using relation.type directly
+            {{ log('Dropping relation: ' ~ relation_name, info=True) }}
             
-            {{ log('Dropping relation: ' ~ relation_name ~ ' of type: ' ~ relation_type, info=True) }}
+            -- Attempt to drop as a view
+            {{ run_query("DROP VIEW IF EXISTS " ~ relation_name) }}
             
-            -- Conditionally drop based on the type
-            {% if relation_type == 'view' %}
-                {{ run_query("DROP VIEW IF EXISTS " ~ relation_name) }}
-            {% elif relation_type == 'table' %}
-                {{ run_query("DROP TABLE IF EXISTS " ~ relation_name) }}
-            {% endif %}
+            -- Attempt to drop as a table
+            {{ run_query("DROP TABLE IF EXISTS " ~ relation_name) }}
+            
         {% endfor %}
     {% else %}
         {{ log("Not in production environment, skipping drop of staging objects", info=True) }}
