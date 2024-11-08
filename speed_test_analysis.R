@@ -4,19 +4,32 @@ targets::tar_load_everything()
 
 the_plan = readRDS("RDS/the_plan.Rds")
 
-results_objs = ls(pattern = "^results")
+results_objs = ls(pattern = "^duckDB|read_csv")
 
 results_raw = apply(the_plan, 1, function(row) {
-  target_obj_duckDB = results_objs[str_which(results_objs, paste0("results_", "duckDB_", row['source'], "_", row['csv_id'], "_", row['iteration']))] |> get()
-  target_obj_read_csv = results_objs[str_which(results_objs, paste0("results_", "read_csv_", row['source'], "_", row['csv_id'], "_", row['iteration']))] |> get()
+  target_obj_read_csv = results_objs[str_which(results_objs, paste0("read_csv_", row['source'], "_", row['csv_id'], "_", row['iteration']))] |> get()
+  target_obj_duckDB_local = results_objs[str_which(results_objs, paste0("duckDB_local_", row['source'], "_", row['csv_id'], "_", row['iteration']))] |> get()
+  target_obj_duckDB_LAN = results_objs[str_which(results_objs, paste0("duckDB_LAN_", row['source'], "_", row['csv_id'], "_", row['iteration']))] |> get()
+  target_obj_duckDB_OneDrive = results_objs[str_which(results_objs, paste0("duckDB_OneDrive_", row['source'], "_", row['csv_id'], "_", row['iteration']))] |> get()
+
 
   tibble_row(
     read_csv_read_time = target_obj_read_csv$read_time,
     read_csv_query_dplyr_time = target_obj_read_csv$query_time[[1]],
     read_csv_query_duckplyr_time = target_obj_read_csv$query_time[[2]],
-    duckDB_success = target_obj_duckDB$success,
-    duckDB_read_time = target_obj_duckDB$read_time,
-    duckDB_query_time = target_obj_duckDB$query_time
+
+    duckDB_success = target_obj_duckDB_local$success != FALSE,
+    # duckDB_local_success = target_obj_duckDB_local$success,
+    # duckDB_LAN_success = target_obj_duckDB_LAN$success,
+    # duckDB_OneDrive_success = target_obj_duckDB_OneDrive$success,
+
+    duckDB_local_read_time = target_obj_duckDB_local$read_time,
+    duckDB_LAN_read_time = target_obj_duckDB_LAN$read_time,
+    duckDB_OneDrive_read_time = target_obj_duckDB_OneDrive$read_time,
+
+    duckDB_local_query_time = target_obj_duckDB_local$query_time,
+    duckDB_LAN_query_time = target_obj_duckDB_LAN$query_time,
+    duckDB_OneDrive_query_time = target_obj_duckDB_OneDrive$query_time
     )
 }) |>
   bind_rows()
@@ -91,3 +104,6 @@ results |>
   ggplot(aes(x=name, y=value, color=name)) +
   facet_wrap(~csv_id) +
   geom_jitter(size=3, alpha=.5)
+
+
+# add a thing for file size vs load time

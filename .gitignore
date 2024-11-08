@@ -16,3 +16,4 @@ RDS
 _targets/
 *.log
 logs/
+profiles.yml
