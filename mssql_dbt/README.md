@@ -1,6 +1,6 @@
-## Setting up a DuckDB database using `dbt-duckdb`
+## Setting up a DuckDB database using `dbt-sqlserver`
 
-This folder is for a variation on loading data into a DuckDB database. These scripts load multiple CSV files into a DuckDB database using `dbt-duckdb`. It helps automate the process of transforming, modeling, and querying data from CSV files in a simple and efficient way. DuckDB is used as the local database engine, and `dbt` orchestrates the loading and transformation process.
+This folder is for a variation on loading data into a sqlserver database. These scripts load multiple CSV files into a DuckDB database using `dbt-duckdb`. It helps automate the process of transforming, modeling, and querying data from CSV files in a simple and efficient way. DuckDB is used as the local database engine, and `dbt` orchestrates the loading and transformation process.
 
 ### Contents
 
@@ -24,12 +24,12 @@ This folder is entirely self-contained, and requires no scripts/knowledge from t
 
 ## Requirements
 
-Since this was built using the Python package `dbt-duckdb`, ensure you have the following tools installed:
+Since this was built using the Python package `dbt-sqlserver`, ensure you have the following tools installed:
 
 * Python (>=3.7)
-* Python versions of `duckdb` and `dbt`:
-    * `pip install dbt-duckdb`
-    * `pip install duckdb`
+* Python versions of `sqlserver` and `dbt`:
+    * `pip install dbt-core`
+    * `pip install dbt-sqlserver`
 
 Note that instead of using `pip`, you may also choose to install these into a clean conda environment. In this case, any further `dbt` commands should always be run from within that active conda environment. 
 
@@ -63,7 +63,7 @@ sei_dbt:
 
 ### Usage
 
-To set up the DuckDB database with our raw CSV data, first ensure that all CSVs are in the correct format (UTF-8). This can be done by running the `sei_dbt.sh` file from a git bash command line (**not a windows command prompt!**):
+To set up the sqlserver database with our raw CSV data, first ensure that all CSVs are in the correct format (UTF-8). This can be done by running the `sei_dbt.sh` file from a git bash command line (**not a windows command prompt!**):
 
 `./sei_dbt.sh`
 
@@ -72,20 +72,19 @@ Then, to run through the `dbt` pipeline, simply run a single command (this time 
 `dbt run`
 
 This will:
-1. Run any `sql` in the `models/staging` folder and produce associated DuckDB tables.
+1. Run any `sql` in the `models/staging` folder and produce associated sqlserver tables.
 2. Run any `sql` in the `models` folder to produce aggregated tables based on these staged files. 
 3. Run `on-run-end` hook which call the clean up macro to remove staging tables. 
 
-Once complete, your DuckDB database will now be populated with the contents of the CSVs. 
+Once complete, your sqlserver database will now be populated with the contents of the CSVs. 
 
 Note that this will likely contain multiple new local folders. These folders do not need to be committed to the repository, and have been included in the repository `.gitignore`. 
 
 ### Resources
 
-More resources on building database pipelines via `dbt` and `duckdb` can be found here: 
+More resources on building database pipelines via `dbt` and `sqlserver` can be found here: 
 
-* https://github.com/mehd-io/dbt-duckdb-tutorial/
-* https://github.com/duckdb/dbt-duckdb
+
 * https://duckdb.org/docs/api/python/overview.html
 
 

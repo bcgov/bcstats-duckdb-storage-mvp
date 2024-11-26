@@ -2,11 +2,11 @@
 # Name your project! Project names should contain only lowercase characters
 # and underscores. A good package name should reflect your organization's
 # name or the intended use of these models
-name: 'sei_dbt_duckdb'
+name: 'mssql_dbt'
 version: '1.0.0'
 
 # This setting configures which "profile" dbt uses for this project, there could be many profiles in `profiles.yml`.
-profile: 'sei_dbt'
+profile: 'mssql_dbt'
 
 # Define the structure and directories for models
 # These configurations specify where dbt should look for different types of files.
@@ -29,12 +29,12 @@ vars:
   # The `csv_file_path` variable will be accessible in all resources
   csv_file_path: 'raw_data'
   # The `db_file_path` variable is only accessible to resources in the sei_dbt project
-  sei_dbt:
+  mssql_dbt:
     db_file_path: 'db'
 
 # add an on-run-end hook in your dbt_project.yml to automatically drop all staging tables at the end of each run:
-on-run-end:
-  - "{{ drop_staging_objects() }}"
+# on-run-end:
+#   - "{{ drop_staging_objects() }}"
 
 
   # - **Ensure dbt_utils is Installed**: The `dbt_utils.get_relations_by_prefix()` function is part of the `dbt_utils` package. If you don’t have it installed, you can add it to your `packages.yml`:
@@ -56,7 +56,7 @@ on-run-end:
 # directory as views. These settings can be overridden in the individual model
 # files using the `{{ config(...) }}` macro.
 models:
-  sei_dbt:
+  mssql_dbt:
     # Config indicated by + and applies to all files under models/staging/
     staging:
-        +materialized:  "{{ 'ephemeral' if target.name == 'prod' else 'table' }}"  # Use ephemeral materialization for staging in prod env
+      +materialized:  "{{ 'ephemeral' if target.name == 'prod' else 'table' }}"  # Use ephemeral materialization for staging in prod env

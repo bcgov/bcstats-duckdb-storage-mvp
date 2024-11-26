@@ -1,14 +1,13 @@
 ## Overview
 
-This project is created to load multiple CSV files into a DuckDB database using **dbt-duckdb** (Data Build Tool). It helps automate the process of transforming, modeling, and querying data from CSV files in a simple and efficient way. DuckDB is used as the local database engine, and dbt orchestrates the loading and transformation process.
+This project is created to load multiple CSV files into a MSSQL database using **dbt** (Data Build Tool). It helps automate the process of transforming, modeling, and querying data from CSV files in a simple and efficient way. DuckDB is used as the local database engine, and dbt orchestrates the loading and transformation process.
 
 
 
 ## Rationale
 
-- **Automated CSV Loading:** Easily load multiple CSV files into DuckDB.
+- **Automated CSV Loading:** Easily load multiple CSV files into MSSQL.
 - **Data Transformation:** Use dbt to perform SQL-based data transformations on the loaded CSVs.
-- **Lightweight Database:** Leverages DuckDB, which is optimized for efficient data processing on local files.
 - **Flexible:** Customize dbt models to suit our business logic and transformation requirements.
 
 ---
@@ -20,8 +19,7 @@ Since we use `dbt-duckdb` Python package, before starting, ensure you have the f
 
 1. **Python** (>= 3.7)
 2. **dbt** (>= 0.19.0)
-3. **DuckDB** (Python package or standalone)
-4. **CSV Files:** Ensure you have your source CSV files ready.
+3. **CSV Files:** Ensure you have your source CSV files ready.
 
 
 
