@@ -31,7 +31,27 @@ Since this was built using the Python package `dbt-sqlserver`, ensure you have t
     * `pip install dbt-core`
     * `pip install dbt-sqlserver`
 
-Note that instead of using `pip`, you may also choose to install these into a clean conda environment. In this case, any further `dbt` commands should always be run from within that active conda environment. 
+
+### New Python environment
+To create a new Python environment for **dbt-sqlserver**, 
+
+* Ensuring you have **Python 3.11 or later** installed. 
+
+* Use a virtual environment tool like `venv` or `conda` to isolate dependencies for your project. 
+  - To use `venv`, navigate to your project directory in the terminal and run `python -m venv venv` to create the environment. 
+     * Activate it using `source venv/bin/activate` (Linux/Mac) or `venv\Scripts\activate` (Windows). 
+  - To use `conda`, ensure you have Anaconda or Miniconda installed. 
+    * If not, download and install Miniconda from Miniconda Downloads.
+    * Open your terminal or command prompt and run the following command to create a new environment named dbt_env with Python 3.8 or later:
+        `conda create --name dbt_env python=3.11`
+    * Activate the Environment: Activate the new environment using:
+        `conda activate dbt_env`
+  
+* Install `dbt-sqlserver` and its dependencies by running `python -m pip install --upgrade dbt-core=1.8.6 dbt-common dbt-adapters dbt-sqlserver`; or `pip install-r requirments.txt`. `requirments.txt` is located in this folder and has the packages that we need for this `dbt` project.
+     Before you install the packages, you might run `python -m pip uninstall -y dbt-adapters`
+* Verify the installation with `dbt --version`, and ensure the correct Python interpreter is used in your project settings if working with an IDE. 
+
+### `dbt` packages
 
 Certain elements of this project also require `dbt` packages. Install required packages from the `packages.yml` file using this command (from the command line inside your dbt conda environment):
 * `dbt deps`
@@ -39,33 +59,35 @@ Certain elements of this project also require `dbt` packages. Install required p
 You will also need to have a `profiles.yml` file saved in this folder. Copy this example into your local repository, and update the `external_root` and `path` variables to point to the appropriate CAV/database locations:
 
 ```yaml
-sei_dbt:
-  target: dev
+mssql_dbt:
+  target: prod
   outputs:
     dev:
-      type: duckdb
-      path: "path/to/your/database.db"  # Path to your DuckDB database file
-      extensions: ['parquet', 'json']   # Optional extensions to load, if needed
-         duckdb_project:
-            threads: 4
-      external_root: "data/dev"
-
-    test:
-      type: duckdb
-      path: "test.db"  # Test database path
-      external_root: "data/test" 
-      
+      type: sqlserver
+      driver: 'ODBC Driver 18 for SQL Server' # (The ODBC Driver installed on your system)
+      server: 'database.idir.bcgov'
+      port: 1433
+      database: database
+      schema: IDIR\NAME
+      windows_login: True
+      trust_cert: True
     prod:
-      type: duckdb
-      path: "prod.db"  # Production database path
-      external_root: "data/prod"
+      type: sqlserver
+      driver: 'ODBC Driver 18 for SQL Server' # (The ODBC Driver installed on your system)
+      server: 'database.idir.bcgov'
+      port: 1433
+      database: database
+      schema: IDIR\NAME
+      windows_login: True
+      trust_cert: True
+
 ```
 
 ### Usage
 
-To set up the sqlserver database with our raw CSV data, first ensure that all CSVs are in the correct format (UTF-8). This can be done by running the `sei_dbt.sh` file from a git bash command line (**not a windows command prompt!**):
+To set up the sqlserver database with our raw CSV data, first ensure that all CSVs are in the correct format (UTF-8). This can be done by running the `convert.sh` file from a git bash command line (**not a windows command prompt!**):
 
-`./sei_dbt.sh`
+`./convert.sh`
 
 Then, to run through the `dbt` pipeline, simply run a single command (this time from a regular Windows command line where all required Python/`dbt` packages are recognized. If using conda to manage your environment, activate your `dbt` environment first):
 

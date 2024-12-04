@@ -31,15 +31,42 @@ Since this was built using the Python package `dbt-duckdb`, ensure you have the 
     * `pip install dbt-duckdb`
     * `pip install duckdb`
 
-Note that instead of using `pip`, you may also choose to install these into a clean conda environment. In this case, any further `dbt` commands should always be run from within that active conda environment. 
+Note that instead of using `pip`, you may also choose to install these into a clean conda environment. 
 
-Certain elements of this project also require `dbt` packages. Install required packages from the `packages.yml` file using this command (from the command line inside your dbt conda environment):
+
+### New Python environment
+To create a new Python environment for **dbt-duckdb**, 
+
+* Ensuring you have **Python 3.11 or later** installed. 
+
+* Use a virtual environment tool like `venv` or `conda` to isolate dependencies for your project. 
+  - To use `venv`, navigate to your project directory in the terminal and run `python -m venv venv` to create the environment. 
+     * Activate it using `source venv/bin/activate` (Linux/Mac) or `venv\Scripts\activate` (Windows). 
+  - To use `conda`, ensure you have Anaconda or Miniconda installed. 
+    * If not, download and install Miniconda from Miniconda Downloads.
+    * Open your terminal or command prompt and run the following command to create a new environment named dbt_env with Python 3.8 or later:
+        `conda create --name dbt_env python=3.11`
+    * Activate the Environment: Activate the new environment using:
+        `conda activate dbt_env`
+  
+* Install `dbt-duckdb` and its dependencies by running `python -m pip install --upgrade dbt-core==1.8.6 dbt-common dbt-adapters dbt-duckdb==1.8.3`; or `pip install-r requirments.txt`. `requirments.txt` is located in this folder and has the packages that we need for this `dbt` project.
+
+* Verify the installation with `dbt --version`, and ensure the correct Python interpreter is used in your project settings if working with an IDE. 
+
+
+### `dbt` packages
+
+This setup keeps your `dbt-duckdb` installation isolated and compatible with your project requirements.
+
+In this case, any further `dbt` commands should always be run from within that active conda environment. 
+
+Certain elements of this project also require `dbt` packages. Install required packages from the `packages.yml` file using this command (from the command line inside your `dbt` conda environment):
 * `dbt deps`
 
 You will also need to have a `profiles.yml` file saved in this folder. Copy this example into your local repository, and update the `external_root` and `path` variables to point to the appropriate CAV/database locations:
 
 ```yaml
-sei_dbt:
+duckdb_dbt:
   target: dev
   outputs:
     dev:
@@ -63,9 +90,9 @@ sei_dbt:
 
 ### Usage
 
-To set up the DuckDB database with our raw CSV data, first ensure that all CSVs are in the correct format (UTF-8). This can be done by running the `sei_dbt.sh` file from a git bash command line (**not a windows command prompt!**):
+To set up the DuckDB database with our raw CSV data, first ensure that all CSVs are in the correct format (UTF-8). This can be done by running the `convert.sh` file from a git bash command line (**not a windows command prompt!**):
 
-`./sei_dbt.sh`
+`./convert.sh`
 
 Then, to run through the `dbt` pipeline, simply run a single command (this time from a regular Windows command line where all required Python/`dbt` packages are recognized. If using conda to manage your environment, activate your `dbt` environment first):
 
