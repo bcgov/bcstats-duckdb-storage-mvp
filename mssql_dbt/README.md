@@ -100,6 +100,15 @@ This will:
 
 Once complete, your sqlserver database will now be populated with the contents of the CSVs. 
 
+Alternatively, for CSV files, we can run
+
+`dbt seeds`
+
+This will load CSV files within the `seeds` folder to the sql server. 
+
+After this step, we can use the models in the `models` folder to transform the data. 
+
+
 Note that this will likely contain multiple new local folders. These folders do not need to be committed to the repository, and have been included in the repository `.gitignore`. 
 
 ### Resources
