@@ -20,8 +20,7 @@ pacman::p_load(odbc, tidyverse, config, DBI, dbplyr,nanoarrow, arrow, duckdb)
 # import functions from utils.r
 source(file = "./utils/utils.r")
 
-<<<<<<< HEAD:r-implementation/03_analysis.R
-=======
+
 # Define the path to the test CSV folder
 # This path is retrieved from the configuration file
 test_csv_folder = config::get("test_sql_server_csv")
@@ -51,7 +50,7 @@ for (table_name in stg_tables$table_name) {
 dbDisconnect(con, shutdown = TRUE)
 
 #####################################################################
->>>>>>> dbt:03_analysis.R
+
 
 # create / connect to database file in another way
 drv <- duckdb(dbdir = file.path(test_csv_folder, "db/bcstats_db.duckdb"),
@@ -62,11 +61,7 @@ bcstats_read_con <- dbConnect(drv)
 all_tbl_list = dbListTables(bcstats_read_con)
 # many tables.
 # list columns/fields in one table
-<<<<<<< HEAD:r-implementation/03_analysis.R
-dbListFields(bcstats_read_con, "BC_Stat_Population_Estimates_20240827")
 
-dbListFields(bcstats_read_con, "BC_Stat_CLR_EXT_20230525")
-=======
 dbListFields(bcstats_read_con, "stg_Census_2021_PUMF_data_donnees_2021_ind_v2")
 
 dbListFields(bcstats_read_con, "BC_Stat_CLR_EXT_20230525")
@@ -81,7 +76,6 @@ dbDisconnect(bcstats_read_con, shutdown = TRUE)
 
 
 
->>>>>>> dbt:03_analysis.R
 ######################################################################################
 # Read data table: method 1. dbplyr
 ########################################################################################

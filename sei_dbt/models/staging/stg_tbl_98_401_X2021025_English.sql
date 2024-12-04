@@ -23,6 +23,6 @@
         CAST("C11_RATE_MEN+" AS FLOAT8 ) AS C11_RATE_MEN,
         CAST("C12_RATE_WOMEN+" AS FLOAT8 ) AS C12_RATE_WOMEN
 
-    FROM read_csv_auto("{{ target.external_root }}/98-401-X2021025_English_CSV_data-utf8.csv")
+    FROM read_csv_auto("{{ target.external_root }}/98-401/98-401-X2021025_English_CSV_data-utf8.csv")
 
 

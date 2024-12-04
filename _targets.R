@@ -24,10 +24,12 @@ params = list(
 
   n_iterations = 2,
 
+
   paths = c(
     LAN = "G:/Operations/Data Science and Analytics/2024_bcstats_db",
     OneDrive = "C:/Users/thister/OneDrive - Government of BC/2024-025 Brett and Jon Database Test Warehouse"
   ),
+
 
   # a tibble with the CSVs to read as well as a query to run on them to time
   csvs = tibble::tribble(~csv, ~base_query,
@@ -57,6 +59,7 @@ params = list(
     use_db = c(F, F, T) # a flag whether the query uses duckDB
   )
 )
+
 
 # I wanted to make this a target but it was not possible to iterate over it (using `pattern`) and get reasonable names for the targets, so I make it a global object instead
 the_plan = get_csvs(params$csv_path, params$csvs) |>

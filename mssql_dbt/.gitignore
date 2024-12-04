@@ -1,0 +1,10 @@
+
+target/
+dbt_packages/
+logs/
+*.duckdb
+*_readme.md
+*.db
+profiles.yml
+output/
+seeds/

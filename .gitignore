@@ -14,3 +14,6 @@ RDS
 *_files
 .Renviron
 _targets/
+*.log
+logs/
+profiles.yml
