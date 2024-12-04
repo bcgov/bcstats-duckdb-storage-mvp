@@ -17,7 +17,7 @@ if(!require(pacman)){
 pacman::p_load(odbc, tidyverse, config, DBI, dbplyr,nanoarrow, arrow, duckdb,tictoc)
 
 # import functions from utils.r
-source(file = "./utils/utils.r")
+source(file = "./r-implementation/utils/utils.r")
 
 # Define the path to the test CSV folder
 # This path is retrieved from the configuration file
@@ -32,7 +32,7 @@ test_csv_folder = config::get("test_sql_server_csv")
 # Create a connection to a new DuckDB database file
 # The function will create a duckdb database file in the test_csv_folder if there is no such file
 bcstats_con <- duckdb::dbConnect(duckdb::duckdb(),
-                                 file.path(test_csv_folder, "db/bcstats_db.duckdb"))
+                                 file.path(test_csv_folder, "db/bcstats_db_prod.duckdb"))
 
 ## test connection by write a small table to it
 # dbWriteTable(bcstats_con, "iris", iris)

@@ -1,9 +1,9 @@
 head -n 5 raw_data/98-401-X2021006_English_CSV_data_BritishColumbia.csv
+head -n 5 raw_data/mobility_status\ \(Census\ Raw\).csv
 
 # -- Check the encoding of the file
 file -i raw_data/98-401-X2021006_English_CSV_data_BritishColumbia.csv
 
-# -- iconv -f ASCII  -t UTF-8 raw_data/98-401-X2021006_English_CSV_data_BritishColumbia.csv > raw_data/98-401-X2021006_English_CSV_data_BritishColumbia-utf8.csv
 
 # -- This command will:
 # -- Attempt to convert from ASCII to UTF-8

@@ -4,17 +4,13 @@
         {% for relation in relations %}
             {% set relation_name = relation.identifier %}
             {{ log('Dropping relation: ' ~ relation_name, info=True) }}
-
+            
             -- Attempt to drop as a view
-            {% set drop_view_sql = "DROP VIEW IF EXISTS " ~ relation_name %}
-            {{ log('Running SQL: ' ~ drop_view_sql, info=True) }}
-            {{ run_query(drop_view_sql) }}
-
+            {{ run_query("DROP VIEW IF EXISTS " ~ relation_name) }}
+            
             -- Attempt to drop as a table
-            {% set drop_table_sql = "DROP TABLE IF EXISTS " ~ relation_name %}
-            {{ log('Running SQL: ' ~ drop_table_sql, info=True) }}
-            {{ run_query(drop_table_sql) }}
-
+            {{ run_query("DROP TABLE IF EXISTS " ~ relation_name) }}
+            
         {% endfor %}
     {% else %}
         {{ log("Not in production environment, skipping drop of staging objects", info=True) }}
