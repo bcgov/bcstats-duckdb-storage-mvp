@@ -116,6 +116,10 @@ Note that this will likely contain multiple new local folders. These folders do 
 More resources on building database pipelines via `dbt` and `sqlserver` can be found here: 
 
 
-* https://duckdb.org/docs/api/python/overview.html
+* https://docs.getdbt.com/docs/core/connect-data-platform/mssql-setup
+* https://popsql.com/learn-dbt/dbt-seed
+* https://dbt-msft.github.io/dbt-msft-docs/docs/training/
+* https://github.com/dbt-labs/jaffle-shop-classic
+* https://medium.com/@suffyan.asad1/getting-started-with-dbt-data-build-tool-a-beginners-guide-to-building-data-transformations-28e335be5f7e
 
 

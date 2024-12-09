@@ -114,5 +114,6 @@ More resources on building database pipelines via `dbt` and `duckdb` can be foun
 * https://github.com/mehd-io/dbt-duckdb-tutorial/
 * https://github.com/duckdb/dbt-duckdb
 * https://duckdb.org/docs/api/python/overview.html
-
+* https://github.com/dbt-labs/jaffle_shop_duckdb
+* https://learn.getdbt.com/catalog
 
