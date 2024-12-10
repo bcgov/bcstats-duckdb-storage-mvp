@@ -1,3 +1,15 @@
+-- # Copyright 2024 Province of British Columbia
+-- #
+-- # Licensed under the Apache License, Version 2.0 (the "License");
+-- # you may not use this file except in compliance with the License.
+-- # You may obtain a copy of the License at
+-- #
+-- # http://www.apache.org/licenses/LICENSE-2.0
+-- #
+-- # Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+-- # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- # See the License for the specific language governing permissions and limitations under the License.
+
 -- Connect to your database or create a new one
 .open db/bcstats_ses_1.duckdb
 
@@ -18,7 +30,7 @@ CREATE TABLE GCS_202406 AS SELECT * FROM read_csv_auto('raw_data/GCS_202406.csv'
 .mode line
 SELECT Prompt FROM sniff_csv('raw_data/98-401-X2021006_English_CSV_data_BritishColumbia.csv');
 
--- Check the data, ignore errors: type error in some rows. This will skip lines with encoding errors. 
+-- Check the data, ignore errors: type error in some rows. This will skip lines with encoding errors.
 -- or specify the column types
 SELECT * FROM read_csv_auto('raw_data/98-401-X2021006_English_CSV_data_BritishColumbia.csv', ignore_errors=true) LIMIT 5;
 
@@ -26,7 +38,7 @@ SELECT * FROM read_csv_auto('raw_data/98-401-X2021006_English_CSV_data_BritishCo
 SELECT * FROM read_csv_auto('raw_data/98-401-X2021006_English_CSV_data_BritishColumbia.csv', types={'GEO_NAME': 'VARCHAR', 'CHARACTERISTIC_NAME': 'VARCHAR'}) LIMIT 5;
 
 
--- Another option is to use the NULL_IF parameter to replace problematic values with NULL:  
+-- Another option is to use the NULL_IF parameter to replace problematic values with NULL:
 -- SELECT * FROM read_csv_auto('raw_data/98-401-X2021006_English_CSV_data_BritishColumbia.csv', NULL_IF='*') LIMIT 5;
 
 

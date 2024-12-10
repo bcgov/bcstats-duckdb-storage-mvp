@@ -11,9 +11,13 @@ Code to load multiple (large) CSV files into a [DuckDB](https://duckdb.org) data
 
 ### Usage
 
-A working MVP for loading multiple CSV files into a DuckDB database using `dbt-duckdb` is located in the `/sei_dbt` folder. See `/sei_dbt/README.md` for details. 
+A working MVP for loading multiple CSV files into a DuckDB database using `dbt-duckdb` is located in the `/duckdb_dbt` folder. See `/duckdb_dbt/README.md` for details. 
+
+A similar `dbt` project with MS SQL server is located in the `/mssql_dbt` folder. 
 
 Some initial prototyping and performance testing was implemented using R&mdash;scripts and documentation of this approach are included in the `/r-implementation` folder. See `/r-implementation/README.md` for details. 
+
+
 
 ### Project Status
 An MVP project currently in active development.
