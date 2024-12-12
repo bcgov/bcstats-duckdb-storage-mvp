@@ -74,7 +74,7 @@ decimal_con <- dbConnect(odbc::odbc(),
 # Initialize logger
 basicConfig(level = 'INFO') # Set logging level to INFO or DEBUG for detailed logs
 
-copy_table_to_mssql <- function(duckdb_conn, mssql_conn, table_name, target_schema = my_schema, batch_size = 100000) {
+copy_table_to_mssql <- function(duckdb_conn, mssql_conn, table_name, target_schema = "prod", batch_size = 100000) {
   offset <- 0
   total_rows_copied <- 0
   loginfo(sprintf("Starting to copy table '%s' from DuckDB to MS SQL Server.", table_name))
@@ -124,7 +124,7 @@ copy_table_to_mssql <- function(duckdb_conn, mssql_conn, table_name, target_sche
 #
 #   The nanoarrow package provides efficient data serialization and transfer capabilities, allowing you to write directly to MS SQL Server using the Arrow format.
 
-copy_table_with_arrow <- function(duckdb_conn, mssql_conn, table_name, target_schema = my_schema, batch_size = 100000) {
+copy_table_with_arrow <- function(duckdb_conn, mssql_conn, table_name, target_schema = "prod", batch_size = 100000) {
   log_info <- function(msg) cat(sprintf("[%s] %s\n", Sys.time(), msg))  # Simple logging
 
   # Get a handle to the DuckDB table using tbl()
