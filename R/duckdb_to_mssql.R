@@ -53,13 +53,13 @@ decimal_con <- dbConnect(odbc::odbc(),
                          Trusted_Connection = "True")
 
 # Function to copy a table from DuckDB to MS SQL Server
-# copy_table_to_mssql <- function(duckdb_conn, mssql_conn, table_name, target_schema = "dbo") {
+# copy_table_to_mssql <- function(duckdb_conn, mssql_conn, table_name, target_schema = "Prod") {
 #   # Read data from DuckDB
 #   query <- paste("SELECT * FROM", table_name)
-#   duckdb_data <- dbGetQuery(duckdb_conn, query)
+#   duckdb_data <- dbGetQueryArrow(duckdb_conn, query)
 #
 #   # Write data to MS SQL Server
-#   dbWriteTable(
+#   dbWriteTableArrow(
 #     conn = mssql_conn,
 #     name = DBI::Id(schema = target_schema, table = table_name),
 #     value = duckdb_data,
@@ -75,47 +75,6 @@ decimal_con <- dbConnect(odbc::odbc(),
 
 # Initialize logger
 basicConfig(level = 'INFO') # Set logging level to INFO or DEBUG for detailed logs
-#
-# copy_table_to_mssql <- function(duckdb_conn, mssql_conn, table_name, target_schema = "prod", batch_size = 100000) {
-#   offset <- 0
-#   total_rows_copied <- 0
-#   loginfo(sprintf("Starting to copy table '%s' from DuckDB to MS SQL Server.", table_name))
-#
-#   repeat {
-#     tryCatch({
-#       # Fetch batch from DuckDB
-#       query <- sprintf("SELECT * FROM %s LIMIT %d OFFSET %d", table_name, batch_size, offset)
-#       duckdb_data <- dbGetQuery(duckdb_conn, query)
-#
-#       if (nrow(duckdb_data) == 0) {
-#         loginfo(sprintf("No more rows to copy for table '%s'. Total rows copied: %d.", table_name, total_rows_copied))
-#         break # Exit loop if no more rows
-#       }
-#
-#       # Write batch to MS SQL Server
-#       dbWriteTable(
-#         conn = mssql_conn,
-#         name = DBI::Id(schema = target_schema, table = table_name),
-#         value = duckdb_data,
-#         append = (offset > 0), # Append after the first batch
-#         row.names = FALSE
-#       )
-#
-#       # Log progress
-#       batch_rows <- nrow(duckdb_data)
-#       total_rows_copied <- total_rows_copied + batch_rows
-#       loginfo(sprintf("Batch starting at offset %d for table '%s' successfully copied. Rows in batch: %d.", offset, table_name, batch_rows))
-#
-#       # Increment offset
-#       offset <- offset + batch_size
-#     }, error = function(e) {
-#       logerror(sprintf("Error while processing table '%s' at offset %d: %s", table_name, offset, e$message))
-#       stop(e) # Stop the process for critical errors
-#     })
-#   }
-#
-#   loginfo(sprintf("Finished copying table '%s' to MS SQL Server. Total rows copied: %d.", table_name, total_rows_copied))
-# }
 
 
 library(DBI)
@@ -163,7 +122,7 @@ library(duckdb)
 #     )
 #
 #     # Logging progress
-#     batch_rows <- arrow::arrow_table_num_rows(arrow_batch)
+#     batch_rows <- batch_size
 #     total_rows_copied <- total_rows_copied + batch_rows
 #     log_info(sprintf("Batch starting at offset %d for table '%s' successfully copied. Rows in batch: %d.", offset, table_name, batch_rows))
 #
@@ -209,78 +168,6 @@ library(DBI)
 library(odbc)
 library(nanoarrow)  # For Arrow integration
 library(duckdb)
-
-# copy_table_with_arrow <- function(duckdb_conn, mssql_conn, table_name, target_schema = "Prod", batch_size = 10000) {
-#   log_info <- function(msg) cat(sprintf("[%s] %s\n", Sys.time(), msg))  # Simple logging
-#
-#
-#
-#   # Check if the table exists in MS SQL Server
-#   check_table_query <- sprintf("
-#     SELECT 1
-#     FROM INFORMATION_SCHEMA.TABLES
-#     WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'", target_schema, table_name)
-#
-#   table_exists <- dbGetQuery(mssql_conn, check_table_query)
-#
-#   # Drop the table if it exists
-#   if (nrow(table_exists) > 0) {
-#     log_info(sprintf("Table '%s.%s' exists in MS SQL Server. Dropping the table.", target_schema, table_name))
-#     dbExecute(mssql_conn, sprintf("DROP TABLE [%s].[%s]", target_schema, table_name))
-#   } else {
-#     log_info(sprintf("Table '%s.%s' does not exist in MS SQL Server. Proceeding with the copy.", target_schema, table_name))
-#   }
-#
-#   # Fetch total row count for progress tracking
-#   total_rows_query <- sprintf("SELECT COUNT(*) AS count FROM %s", table_name)
-#   total_rows <- dbGetQuery(duckdb_conn, total_rows_query)$count
-#   log_info(sprintf("Table '%s' contains %d rows. Starting to copy in batches.", table_name, total_rows))
-#
-#   # Verify the column types in DuckDB before processing:
-#   dbGetQuery(duckdb_conn, sprintf("DESCRIBE %s", table_name)) %>% print()
-#
-#   # Arrow schema output
-#   arrow_schema <- arrow::schema(arrow_batch)
-#   print(arrow_schema)
-#
-#
-#   offset <- 133968
-#   total_rows_copied <- 0
-#
-#   repeat {
-#     # Read a batch as an Arrow Table using dbReadTableArrow
-#     batch_query <- sprintf("SELECT * FROM %s LIMIT %d OFFSET %d", table_name, batch_size, offset)
-#     arrow_batch <- dbGetQueryArrow(duckdb_conn, batch_query)
-      # (arrow_batch$get_schema())
-      arrow_batch$get_next()
-#     duckdb_result <-  dbGetQuery(duckdb_conn, batch_query)
-#     str(duckdb_result)
-
-#     # Break if no rows are left duckdb::dbGetRowCount("duckdb_result")
-#     if (is.null(arrow_batch$get_next())) {
-#       log_info(sprintf("No more rows to copy for table '%s'. Total rows copied: %d.", table_name, total_rows_copied))
-#       break
-#     }
-#
-#     # Write the Arrow Table batch to MS SQL Server
-#     dbWriteTableArrow(
-#       conn = mssql_conn,
-#       name = DBI::Id(schema = target_schema, table = table_name),  # Target schema and table name
-#       value = arrow_batch,
-#       append = (offset > 0)  # Append after the first batch
-#     )
-#
-#     # Logging progress
-#     batch_rows <- arrow::arrow_table_num_rows(arrow_batch)
-#     total_rows_copied <- total_rows_copied + batch_rows
-#     log_info(sprintf("Batch starting at offset %d for table '%s' successfully copied. Rows in batch: %d.", offset, table_name, batch_rows))
-#
-#     # Increment offset for the next batch
-#     offset <- offset + batch_size
-#   }
-#
-#   log_info(sprintf("Finished copying table '%s' to MS SQL Server. Total rows copied: %d.", table_name, total_rows_copied))
-# }
 
 log_info <- function(msg) cat(sprintf("[%s] %s\n", Sys.time(), msg))  # Simple logging
 
