@@ -1,6 +1,6 @@
 ## Setting up a DuckDB database using `dbt-sqlserver`
 
-This folder is abandoned since dbt cannot compile the SQL queris when the schema has "/" in the name. 
+This folder is abandoned since dbt cannot compile the SQL queris when the schema has "/" in the name. If we can work on schema 'Prod', it works.  
 
 This folder is for a variation on loading data into a sqlserver database. These scripts load multiple CSV files into a DuckDB database using `dbt-duckdb`. It helps automate the process of transforming, modeling, and querying data from CSV files in a simple and efficient way. DuckDB is used as the local database engine, and `dbt` orchestrates the loading and transformation process.
 

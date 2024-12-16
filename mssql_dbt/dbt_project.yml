@@ -15,7 +15,7 @@ profile: 'mssql_dbt'
 model-paths: ["models"]
 analysis-paths: ["analyses"]
 test-paths: ["tests"]
-seed-paths: ["seeds", 'raw_data']
+seed-paths: ["seeds"]
 macro-paths: ["macros"]
 snapshot-paths: ["snapshots"]
 
@@ -27,10 +27,7 @@ clean-targets:         # directories to be removed by `dbt clean`
 # Project-specific variables
 vars:
   # The `csv_file_path` variable will be accessible in all resources
-  csv_file_path: 'raw_data'
-  # The `db_file_path` variable is only accessible to resources in the sei_dbt project
-  mssql_dbt:
-    db_file_path: 'db'
+  csv_file_path: 'raw_data'    
 
 # add an on-run-end hook in your dbt_project.yml to automatically drop all staging tables at the end of each run:
 # on-run-end:
@@ -48,6 +45,11 @@ vars:
 #   After adding this, run `dbt deps` to install the package.
 
 
+# Setting quote_columns: False ensures that dbt doesn't wrap column names in quotes, which can sometimes lead to case sensitivity issues in SQL Server.
+seeds:
+  mssql_dbt:
+    quote_columns: False
+
 
 # Configuring models
 # Full documentation: https://docs.getdbt.com/docs/configuring-models
@@ -55,8 +57,9 @@ vars:
 # In this example config, we tell dbt to build all models in the example/
 # directory as views. These settings can be overridden in the individual model
 # files using the `{{ config(...) }}` macro.
-models:
-  mssql_dbt:
-    # Config indicated by + and applies to all files under models/staging/
-    staging:
-      +materialized:  "{{ 'ephemeral' if target.name == 'prod' else 'table' }}"  # Use ephemeral materialization for staging in prod env
+# models:
+#   +quoting:
+#     database: false
+#     schema: false
+#     identifier: false
+

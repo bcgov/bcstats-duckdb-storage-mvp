@@ -1,0 +1,19 @@
+version: 2
+
+sources:
+  - name: my_health_files  # Or whatever you name your source in sources.yml
+    database: HealthFiles_test
+    schema: "prod"  # Keep the double quotes and backslashes here
+    tables:
+      - name: raw_FIN_Neighborhood_Incomes_2016_2020
+      - name: raw_FIN_Neighborhood_Incomes_2021
+  # - name: econ
+  #   database: HealthFiles_test
+  #   schema: IDIR_JDUAN
+  #   description: economic data
+  #   tables:
+  #     - name: raw_FIN_Neighborhood_Incomes_2016_2020
+  #       description: One record per neighborhood in 2016-2020
+  #     - name: raw_FIN_Neighborhood_Incomes_2021
+  #       description: One record per neighborhood in 2021  
+
