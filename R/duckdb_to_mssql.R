@@ -33,6 +33,8 @@ tables <- dbGetQuery(dev_db_con, "SELECT table_name FROM information_schema.tabl
 print(tables)
 
 duckdb_file <- file.path(db_folder_path, "bcstats_db_prod.duckdb")
+# Connect to DuckDB
+duckdb_conn <- dbConnect(duckdb::duckdb(), dbdir = duckdb_file)
 # mssql_conn <- dbConnect(odbc::odbc(),
 #                         Driver = "ODBC Driver 17 for SQL Server",
 #                         Server = "your_server",
@@ -123,57 +125,57 @@ library(nanoarrow)  # For Arrow integration
 library(duckdb)
 
 # Function to copy data from CSV to MS SQL Server
-copy_csv_to_mssql <- function(csv_path, mssql_conn, table_name, target_schema = "dbo", batch_size = 10000) {
-  log_info <- function(msg) cat(sprintf("[%s] %s\n", Sys.time(), msg))  # Simple logging
-
-  # Connect to DuckDB (in-memory)
-  duckdb_conn <- dbConnect(duckdb::duckdb(), dbdir = ":memory:")
-
-  # Create a temporary DuckDB table from the CSV
-  log_info(sprintf("Reading CSV file '%s' into DuckDB.", csv_path))
-  duckdb_table_name <- "temp_table"
-  dbExecute(duckdb_conn, sprintf("CREATE TABLE %s AS SELECT * FROM read_csv_auto('%s')", duckdb_table_name, csv_path))
-
-  # Fetch total row count for progress tracking
-  total_rows <- dbGetQuery(duckdb_conn, sprintf("SELECT COUNT(*) AS count FROM %s", duckdb_table_name))$count
-  log_info(sprintf("CSV file '%s' contains %d rows. Starting to copy in batches.", csv_path, total_rows))
-
-  offset <- 0
-  total_rows_copied <- 0
-
-  repeat {
-    # Read a batch as an Arrow Table using dbReadTableArrow
-    query <- sprintf("SELECT * FROM %s LIMIT %d OFFSET %d", duckdb_table_name, batch_size, offset)
-    arrow_batch <- dbReadTableArrow(duckdb_conn, query)
-
-    # Break if no rows are left
-    if (arrow::arrow_table_num_rows(arrow_batch) == 0) {
-      log_info(sprintf("No more rows to copy for table '%s'. Total rows copied: %d.", table_name, total_rows_copied))
-      break
-    }
-
-    # Write the Arrow Table batch to MS SQL Server
-    dbWriteTableArrow(
-      conn = mssql_conn,
-      name = DBI::Id(schema = target_schema, table = table_name),  # Target schema and table name
-      value = arrow_batch,
-      append = (offset > 0)  # Append after the first batch
-    )
-
-    # Logging progress
-    batch_rows <- arrow::arrow_table_num_rows(arrow_batch)
-    total_rows_copied <- total_rows_copied + batch_rows
-    log_info(sprintf("Batch starting at offset %d for table '%s' successfully copied. Rows in batch: %d.", offset, table_name, batch_rows))
-
-    # Increment offset for the next batch
-    offset <- offset + batch_size
-  }
-
-  log_info(sprintf("Finished copying table '%s' to MS SQL Server. Total rows copied: %d.", table_name, total_rows_copied))
-
-  # Disconnect DuckDB
-  dbDisconnect(duckdb_conn)
-}
+# copy_csv_to_mssql <- function(csv_path, mssql_conn, table_name, target_schema = "dbo", batch_size = 10000) {
+#   log_info <- function(msg) cat(sprintf("[%s] %s\n", Sys.time(), msg))  # Simple logging
+#
+#   # Connect to DuckDB (in-memory)
+#   duckdb_conn <- dbConnect(duckdb::duckdb(), dbdir = ":memory:")
+#
+#   # Create a temporary DuckDB table from the CSV
+#   log_info(sprintf("Reading CSV file '%s' into DuckDB.", csv_path))
+#   duckdb_table_name <- "temp_table"
+#   dbExecute(duckdb_conn, sprintf("CREATE TABLE %s AS SELECT * FROM read_csv_auto('%s')", duckdb_table_name, csv_path))
+#
+#   # Fetch total row count for progress tracking
+#   total_rows <- dbGetQuery(duckdb_conn, sprintf("SELECT COUNT(*) AS count FROM %s", duckdb_table_name))$count
+#   log_info(sprintf("CSV file '%s' contains %d rows. Starting to copy in batches.", csv_path, total_rows))
+#
+#   offset <- 0
+#   total_rows_copied <- 0
+#
+#   repeat {
+#     # Read a batch as an Arrow Table using dbReadTableArrow
+#     query <- sprintf("SELECT * FROM %s LIMIT %d OFFSET %d", duckdb_table_name, batch_size, offset)
+#     arrow_batch <- dbGetQueryArrow(duckdb_conn, query)
+#
+#     # Break if no rows are left
+#     if (is.null(arrow_batch)) {
+#       log_info(sprintf("No more rows to copy for table '%s'. Total rows copied: %d.", table_name, total_rows_copied))
+#       break
+#     }
+#
+#     # Write the Arrow Table batch to MS SQL Server
+#     dbWriteTableArrow(
+#       conn = mssql_conn,
+#       name = DBI::Id(schema = target_schema, table = table_name),  # Target schema and table name
+#       value = arrow_batch,
+#       append = (offset > 0)  # Append after the first batch
+#     )
+#
+#     # Logging progress
+#     batch_rows <- arrow::arrow_table_num_rows(arrow_batch)
+#     total_rows_copied <- total_rows_copied + batch_rows
+#     log_info(sprintf("Batch starting at offset %d for table '%s' successfully copied. Rows in batch: %d.", offset, table_name, batch_rows))
+#
+#     # Increment offset for the next batch
+#     offset <- offset + batch_size
+#   }
+#
+#   log_info(sprintf("Finished copying table '%s' to MS SQL Server. Total rows copied: %d.", table_name, total_rows_copied))
+#
+#   # Disconnect DuckDB
+#   dbDisconnect(duckdb_conn)
+# }
 
 
 
@@ -242,16 +244,20 @@ library(duckdb)
 #   print(arrow_schema)
 #
 #
-#   offset <- 0
+#   offset <- 133968
 #   total_rows_copied <- 0
 #
 #   repeat {
 #     # Read a batch as an Arrow Table using dbReadTableArrow
 #     batch_query <- sprintf("SELECT * FROM %s LIMIT %d OFFSET %d", table_name, batch_size, offset)
-#     arrow_batch <- dbReadTableArrow(duckdb_conn, batch_query)
-#
-#     # Break if no rows are left
-#     if (arrow::arrow_table_num_rows(arrow_batch) == 0) {
+#     arrow_batch <- dbGetQueryArrow(duckdb_conn, batch_query)
+      # (arrow_batch$get_schema())
+      arrow_batch$get_next()
+#     duckdb_result <-  dbGetQuery(duckdb_conn, batch_query)
+#     str(duckdb_result)
+
+#     # Break if no rows are left duckdb::dbGetRowCount("duckdb_result")
+#     if (is.null(arrow_batch$get_next())) {
 #       log_info(sprintf("No more rows to copy for table '%s'. Total rows copied: %d.", table_name, total_rows_copied))
 #       break
 #     }
@@ -276,6 +282,8 @@ library(duckdb)
 #   log_info(sprintf("Finished copying table '%s' to MS SQL Server. Total rows copied: %d.", table_name, total_rows_copied))
 # }
 
+log_info <- function(msg) cat(sprintf("[%s] %s\n", Sys.time(), msg))  # Simple logging
+
 
 copy_table_with_arrow <- function(duckdb_conn, mssql_conn, table_name, target_schema = "Prod") {
   log_info <- function(msg) cat(sprintf("[%s] %s\n", Sys.time(), msg))  # Simple logging
@@ -291,6 +299,7 @@ copy_table_with_arrow <- function(duckdb_conn, mssql_conn, table_name, target_sc
 
   # Copy data in batches
   copy_data_duckdb_mssql(duckdb_conn, mssql_conn, table_name, target_schema,  log_info)
+  # or copy_data_in_batches <- function(duckdb_conn, mssql_conn, table_name, target_schema, batch_size,total_rows,log_info)
 
   log_info(sprintf("Finished copying table '%s' to MS SQL Server.", table_name))
 }
@@ -330,7 +339,6 @@ copy_data_duckdb_mssql <- function(duckdb_conn, mssql_conn, table_name, target_s
 
   # Create an array stream from DuckDB table
   stream <- dbGetQueryArrow(duckdb_conn, sprintf("SELECT * FROM %s", table_name))
- # nanoarrow::as_nanoarrow_array_stream() works as well, but the stream is arealdy a stream
 
   # Stream the data directly into MS SQL Server
   dbWriteTableArrow(
@@ -344,8 +352,67 @@ copy_data_duckdb_mssql <- function(duckdb_conn, mssql_conn, table_name, target_s
 }
 
 
-# Connect to DuckDB
-duckdb_conn <- dbConnect(duckdb::duckdb(), dbdir = duckdb_file)
+# copy in batches, use arrow_batch.get_next() to get it stopped.
+copy_data_in_batches <- function(duckdb_conn, mssql_conn, table_name, target_schema, batch_size,total_rows,log_info) {
+  offset <- 0
+  total_rows_copied <- 0
+
+  repeat {
+    # Read a batch as an Arrow Table using dbGetQueryArrow
+    batch_query <- sprintf("SELECT * FROM %s LIMIT %d OFFSET %d", table_name, batch_size, offset)
+    arrow_batch <- dbGetQueryArrow(duckdb_conn, batch_query)
+
+    # Check if arrow_batch is empty or NULL
+    if (is.null(arrow_batch.get_next()) ) {
+      log_info(sprintf("No more rows to copy for table '%s'. Total rows copied: %d.", table_name, total_rows_copied))
+      break
+    }
+
+    # Write the Arrow Table batch to MS SQL Server
+    dbWriteTableArrow(
+      conn = mssql_conn,
+      name = DBI::Id(schema = target_schema, table = table_name),  # Target schema and table name
+      value = arrow_batch,
+      append = (offset > 0)  # Append after the first batch
+    )
+
+    # Logging progress
+    batch_rows <- batch_size  #arrow_batch$num_rows this is a nanoarrow stream and does not have the num_rows
+    total_rows_copied <- if_else((total_rows_copied + batch_rows)>=total_rows, total_rows, (total_rows_copied + batch_rows))
+    log_info(sprintf("Batch starting at offset %d for table '%s' successfully copied. Rows in batch: %d.", offset, table_name, batch_rows))
+
+    # Increment offset for the next batch
+    offset <- offset + batch_size
+  }
+}
+
+
+# use it with caution.
+# This function appends data from DuckDB to the existing table in MS SQL Server.
+append_data_to_existing_table <- function(duckdb_conn, mssql_conn, table_name, target_schema, target_table, log_info) {
+  log_info(sprintf("Starting to append data from DuckDB table '%s' to MS SQL Server table '%s.%s'.", table_name, target_schema, table_name))
+
+  # Create an array stream from DuckDB table
+  result <- dbSendQueryArrow(duckdb_conn, sprintf("SELECT * FROM %s", table_name))
+  on.exit(dbClearResult(result))  # Ensure query result is cleared
+
+  stream <- as_nanoarrow_array_stream(result)
+
+  # Append the data directly into MS SQL Server
+  dbWriteTableArrow(
+    conn = mssql_conn,
+    name = DBI::Id(schema = target_schema, table = target_table),  # Specify schema and table name
+    value = stream,  # Use the nanoarrow stream directly
+    append = TRUE  # Append to the existing table
+  )
+
+  log_info(sprintf("Completed appending data from DuckDB table '%s' to MS SQL Server table '%s.%s'.", table_name, target_schema, table_name))
+}
+
+
+
+
+
 # Query to list all tables in the DuckDB database
 tables <- dbGetQuery(duckdb_conn, "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main';")
 
