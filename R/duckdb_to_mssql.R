@@ -136,7 +136,26 @@ library(duckdb)
 #   dbDisconnect(duckdb_conn)
 # }
 
-
+#
+# # Example Usage
+# mssql_conn <- dbConnect(odbc::odbc(),
+#                         Driver = "ODBC Driver 17 for SQL Server",
+#                         Server = "your_server",
+#                         Database = "your_target_database",  # Target database
+#                         UID = "your_username",
+#                         PWD = "your_password",
+#                         Port = 1433)
+#
+# copy_csv_to_mssql(
+#   csv_path = "path/to/your_file.csv",   # Path to the CSV file
+#   mssql_conn = mssql_conn,
+#   table_name = "target_table",          # Target table name in MS SQL Server
+#   target_schema = "dbo",                # Target schema in MS SQL Server
+#   batch_size = 10000                    # Batch size
+# )
+#
+# # Disconnect MS SQL Server
+# dbDisconnect(mssql_conn)
 
 
 # Function to copy a table using Arrow
@@ -309,7 +328,7 @@ print(tables)
 tables_to_copy <- tables$table_name[tables$table_name %>% stringr::str_detect(pattern = "stg", negate = T)]
 
 # Loop through tables and copy them
-for (table_name in c("GCS_202406")) {
+for (table_name in tables_to_copy) {
   copy_table_with_arrow(duckdb_conn, mssql_conn= decimal_con, table_name)
 }
 
@@ -317,23 +336,4 @@ for (table_name in c("GCS_202406")) {
 dbDisconnect(duckdb_conn)
 dbDisconnect(decimal_con)
 
-#
-# # Example Usage
-# mssql_conn <- dbConnect(odbc::odbc(),
-#                         Driver = "ODBC Driver 17 for SQL Server",
-#                         Server = "your_server",
-#                         Database = "your_target_database",  # Target database
-#                         UID = "your_username",
-#                         PWD = "your_password",
-#                         Port = 1433)
-#
-# copy_csv_to_mssql(
-#   csv_path = "path/to/your_file.csv",   # Path to the CSV file
-#   mssql_conn = mssql_conn,
-#   table_name = "target_table",          # Target table name in MS SQL Server
-#   target_schema = "dbo",                # Target schema in MS SQL Server
-#   batch_size = 10000                    # Batch size
-# )
-#
-# # Disconnect MS SQL Server
-# dbDisconnect(mssql_conn)
+
