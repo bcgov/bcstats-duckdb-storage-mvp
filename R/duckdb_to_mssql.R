@@ -1,3 +1,27 @@
+# Copyright 2024 Province of British Columbia
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and limitations under the License.
+
+# Copyright 2024 Province of British Columbia
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and limitations under the License.
+
 # Workflow in R
 # Load Data into DuckDB Using dbt
 #
@@ -10,7 +34,8 @@ library(DBI)
 library(odbc)
 library(duckdb)
 library(dplyr)
-library(logging)
+# install.packages("\\\\Client\\C$\\Users\\YourUserName\\Downloads\\log4r_0.4.4.tar.gz", repos = NULL, type = "source")
+library(log4r)
 library(arrow)
 library(nanoarrow)  # For Arrow integration
 # File paths and connection details
@@ -74,7 +99,7 @@ decimal_con <- dbConnect(odbc::odbc(),
 # Batching Large Tables: If tables are very large, you can implement batching by reading and writing data in chunks.
 
 # Initialize logger
-basicConfig(level = 'INFO') # Set logging level to INFO or DEBUG for detailed logs
+# basicConfig(level = 'INFO') # Set logging level to INFO or DEBUG for detailed logs
 
 
 library(DBI)
@@ -188,11 +213,15 @@ library(odbc)
 library(nanoarrow)  # For Arrow integration
 library(duckdb)
 
-log_info <- function(msg) cat(sprintf("[%s] %s\n", Sys.time(), msg))  # Simple logging
 
+log_info <- function(msg, log_file = file_logger) {
+  # cat(sprintf("[%s] %s\n", Sys.time(), msg))  # Simple logging
+  info(log_file, msg)
+
+}
 
 copy_table_with_arrow <- function(duckdb_conn, mssql_conn, table_name, target_schema = "Prod") {
-  log_info <- function(msg) cat(sprintf("[%s] %s\n", Sys.time(), msg))  # Simple logging
+
 
   # Check if the table exists in MS SQL Server and drop it if necessary
   check_and_drop_table(mssql_conn, table_name, target_schema, log_info)
@@ -300,6 +329,7 @@ append_data_to_existing_table <- function(duckdb_conn, mssql_conn, table_name, t
 
   # Create an array stream from DuckDB table
   result <- dbSendQueryArrow(duckdb_conn, sprintf("SELECT * FROM %s", table_name))
+  # result <- dbReadTableArrow(duckdb_conn, table_name)
   on.exit(dbClearResult(result))  # Ensure query result is cleared
 
   stream <- as_nanoarrow_array_stream(result)

@@ -1,12 +1,68 @@
+# Copyright 2024 Province of British Columbia
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and limitations under the License.
+
+# Copyright 2024 Province of British Columbia
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and limitations under the License.
+
+# Load required library
+library(tidyverse)
+library(fs)
+library(stringr)
 library(DBI)
 library(odbc)
 library(dplyr)
+library(arrow)
+# install.packages("\\\\Client\\C$\\Users\\YourUserName\\Downloads\\nanoarrow_0.6.0.tar.gz", repos = NULL, type = "source")
 library(nanoarrow)  # For Arrow integration
 library(duckdb)
-
+library(log4r)
+source("./R/functions.r")
 
 # This path is retrieved from the configuration file
-test_csv_folder = config::get("test_sql_server_csv")
+lan_csv_file_path = config::get("lan_csv_file_path")
+
+# create a local temp duckdb file
+# duckdb_conn <- dbConnect(duckdb::duckdb(), dbdir = ":memory:")
+# csv_file_path_1 = file.path(lan_csv_file_path,
+#                             "Population Estimates/Sub-Provincial (Annual)/01_Health Monthly Client Data/2016_08 (Aug)/CLR_EXT_20160927.csv")
+# table_name_1 = "CLR_EXT_20160927"
+# #
+# test_csv = duckdb_read_csv(conn = duckdb_conn,
+#                            name = table_name_1,
+#                            files = csv_file_path_1
+#                             )
+#
+# batch_query <- sprintf("SELECT count(*) AS ROW_NUM FROM %s LIMIT %d OFFSET %d", table_name_1, 100, 0)
+# arrow_batch <- dbGetQuery(duckdb_conn, batch_query)
+# str(arrow_batch)
+# arrow_batch$get_next()
+# arrow_batch$ROW_NUM
+#
+# duckdb_table <- tbl(duckdb_conn, "CLR_EXT_20160927")
+#
+# str(duckdb_table)
+#
+#
+#
+# duckdb_table %>% glimpse()
 
 
 # ---- Configuration ----
@@ -20,72 +76,86 @@ decimal_con <- dbConnect(odbc::odbc(),
                          Trusted_Connection = "True")
 
 
-# Function to copy data from CSV to MS SQL Server
-copy_csv_to_mssql <- function(csv_path, mssql_conn, table_name, target_schema = my_schema, batch_size = 10000) {
-  log_info <- function(msg) cat(sprintf("[%s] %s\n", Sys.time(), msg))  # Simple logging
+# Example Usage
+# duckdb_conn <- dbConnect(duckdb::duckdb(), dbdir = ":memory:")
+# csv_file_path_1 = file.path(lan_csv_file_path,
+#                             "Population Estimates/Sub-Provincial (Annual)/01_Health Monthly Client Data/2016_08 (Aug)/CLR_EXT_20160927.csv")
+# table_name_1 = "CLR_EXT_20160927"
+#
+# copy_csv_to_mssql(
+#   csv_path = csv_file_path_1,   # Path to the CSV file
+#   mssql_conn = decimal_con,
+#   table_name = table_name_1,          # Target table name in MS SQL Server
+#   target_schema = "dev",                # Target schema in MS SQL Server
+#   batch_size = 100000                    # Batch size
+# )
+#
 
-  # Connect to DuckDB (in-memory)
-  duckdb_conn <- dbConnect(duckdb::duckdb(), dbdir = ":memory:")
 
-  # Read the CSV using DuckDB
-  log_info(sprintf("Reading CSV file '%s' into DuckDB.", csv_path))
-  duckdb_table <- tbl(duckdb_conn, paste0("read_csv_auto('", csv_path, "')"))  # Lazily load CSV
 
-  # Fetch total row count for progress tracking
-  total_rows <- duckdb_table %>% summarise(count = n()) %>% collect() %>% pull(count)
-  log_info(sprintf("CSV file '%s' contains %d rows. Starting to copy in batches.", csv_path, total_rows))
+log_dir= "DATABASE/Citrix/log/"
 
-  offset <- 0
-  total_rows_copied <- 0
+dir.create(file.path(lan_csv_file_path,log_dir))
 
-  repeat {
-    # Select a batch using filter() with row_number()
-    batch <- duckdb_table %>%
-      filter(row_number() > offset & row_number() <= (offset + batch_size)) %>%
-      collect()  # Materialize the batch in memory
+log_file_path = file.path(file.path(lan_csv_file_path,log_dir), glue::glue("Read_csv_file_write_to_sqlserver_{Sys.Date()}.log"))
 
-    # Break if no rows are left
-    if (nrow(batch) == 0) {
-      log_info(sprintf("No more rows to copy for table '%s'. Total rows copied: %d.", table_name, total_rows_copied))
-      break
-    }
+file_logger = logger(appenders = file_appender(log_file_path))
 
-    # Convert the batch to an Arrow Table
-    arrow_batch <- as_arrow_table(batch)
+info(file_logger, "Starte reading csv file write to sqlserver")
 
-    # Write the batch to MS SQL Server using nanoarrow
-    dbWriteTableArrow(
-      conn = mssql_conn,
-      name = DBI::Id(schema = target_schema, table = table_name),  # Target schema and table name
-      value = arrow_batch,
-      append = (offset > 0)  # Append after the first batch
+
+
+# Read table name and CSV file path and if already created, and if need to be created from an Excel file which should be defined by DBA/project manager.
+# table_list = tibble()
+
+health_csv_file_list = read_csv(
+  file.path(
+    lan_csv_file_path,
+    "Population Estimates/Sub-Provincial (Annual)/01_Health Monthly Client Data/",
+    "clr_ext_csv_files_list_with_sql_names.csv"
+  )
+)
+
+
+
+
+for (i in 1:nrow(health_csv_file_list)) {
+  one_table = health_csv_file_list %>% slice(i)
+
+  sql_table_name = one_table %>%
+    pull(sql_table_name)
+  file_name = one_table %>%
+    pull(file_name)
+  subfolder_path  = one_table %>%
+    pull(subfolder_path)
+  log_info(sprintf("Start processing table '%s'.", file_name))
+
+  if (one_table$file_loaded || sql_table_name == "CLR_EXT_20190527") {
+    # do nothing
+  } else {
+
+
+    copy_duckdb_csv_to_mssql(
+      csv_path = file.path(subfolder_path, file_name),
+      mssql_conn = decimal_con,
+      table_name = sql_table_name,
+      target_schema = "dev",
+      batch_size = 10000
     )
-
-    # Logging progress
-    batch_rows <- nrow(batch)
-    total_rows_copied <- total_rows_copied + batch_rows
-    log_info(sprintf("Batch starting at offset %d for table '%s' successfully copied. Rows in batch: %d.", offset, table_name, batch_rows))
-
-    # Increment offset for the next batch
-    offset <- offset + batch_size
+    health_csv_file_list[i, "file_loaded"] = T
   }
 
-  log_info(sprintf("Finished copying table '%s' to MS SQL Server. Total rows copied: %d.", table_name, total_rows_copied))
-
-  # Disconnect DuckDB
-  dbDisconnect(duckdb_conn)
 }
 
-# Example Usage
-
-
-copy_csv_to_mssql(
-  csv_path = "path/to/your_file.csv",   # Path to the CSV file
-  mssql_conn = decimal_con,
-  table_name = "target_table",          # Target table name in MS SQL Server
-  target_schema = my_schema,                # Target schema in MS SQL Server
-  batch_size = 10000                    # Batch size
+health_csv_file_list  %>%  write_csv(
+  file.path(
+    lan_csv_file_path,
+    "Population Estimates/Sub-Provincial (Annual)/01_Health Monthly Client Data/",
+    "clr_ext_csv_files_list_with_sql_names.csv"
+  )
 )
+
+
 
 # Disconnect MS SQL Server
 dbDisconnect(decimal_con)
