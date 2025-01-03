@@ -174,8 +174,8 @@ copy_csv_to_mssql <- function(csv_path, mssql_conn, table_name, target_schema = 
 
 
 
-log_info <- function(msg, log_file = file_logger) {
-  cat(sprintf("[%s] %s\n", Sys.time(), msg))  # Simple logging
+log_info <- function(msg, log_file = file_logger, print_flag = T) {
+  if (print_flag) cat(sprintf("[%s] %s\n", Sys.time(), msg))  # Simple logging
   info(log_file, msg)
 
 }
@@ -215,86 +215,86 @@ verify_duckdb_schema <- function(duckdb_conn, table_name) {
   print(schema_info)
 }
 
-copy_data_duckdb_mssql <- function(duckdb_conn, mssql_conn, table_name, target_schema) {
-  log_info(sprintf("Starting to stream data from DuckDB table '%s' to MS SQL Server.", table_name))
-
-  # Create an array stream from DuckDB table
-  result <- dbGetQueryArrow(duckdb_conn, sprintf("SELECT * FROM %s", table_name))
-
-  stream <- as_nanoarrow_array_stream(result)
-
-  # Stream the data directly into MS SQL Server
-  dbWriteTableArrow(
-    conn = mssql_conn,
-    name = DBI::Id(schema = target_schema, table = table_name),  # Specify schema and table name
-    value = stream  # Use the nanoarrow stream directly
-    # overwrite = TRUE  # Replace the table if it exists
-  )
-
-  log_info(sprintf("Completed streaming data from DuckDB table '%s' to MS SQL Server.", table_name))
-}
+# copy_data_duckdb_mssql <- function(duckdb_conn, mssql_conn, table_name, target_schema) {
+#   log_info(sprintf("Starting to stream data from DuckDB table '%s' to MS SQL Server.", table_name))
+#
+#   # Create an array stream from DuckDB table
+#   result <- dbGetQueryArrow(duckdb_conn, sprintf("SELECT * FROM %s", table_name))
+#
+#   stream <- as_nanoarrow_array_stream(result)
+#
+#   # Stream the data directly into MS SQL Server
+#   dbWriteTableArrow(
+#     conn = mssql_conn,
+#     name = DBI::Id(schema = target_schema, table = table_name),  # Specify schema and table name
+#     value = stream  # Use the nanoarrow stream directly
+#     # overwrite = TRUE  # Replace the table if it exists
+#   )
+#
+#   log_info(sprintf("Completed streaming data from DuckDB table '%s' to MS SQL Server.", table_name))
+# }
 
 
 # copy in batches, use arrow_batch.get_next() to get it stopped.
-copy_data_duckdb_mssql_in_batches <- function(duckdb_conn, mssql_conn, table_name, target_schema, batch_size,total_rows) {
-  offset <- 0
-  total_rows_copied <- 0
+# copy_data_duckdb_mssql_in_batches <- function(duckdb_conn, mssql_conn, table_name, target_schema, batch_size,total_rows) {
+#   offset <- 0
+#   total_rows_copied <- 0
+#
+#   repeat {
+#     # Read a batch as an Arrow Table using dbGetQueryArrow
+#     batch_query <- sprintf("SELECT * FROM %s LIMIT %d OFFSET %d", table_name, batch_size, offset)
+#     arrow_batch <- dbGetQueryArrow(duckdb_conn, batch_query)
+#     # arrow_batch <- dbSendQueryArrow(duckdb_conn, batch_query)
+#     # on.exit(dbClearResult(arrow_batch))  # Ensure query result is cleared
+#
+#
+#     batch_rows <- dbGetQuery(duckdb_conn, sprintf("SELECT count(*) as count from (SELECT * FROM %s LIMIT %d OFFSET %d)", table_name, batch_size, offset))$count
+#
+#     # Check if arrow_batch is empty or NULL
+#     if (is.null(arrow_batch) || batch_rows == 0 ) {
+#       log_info(sprintf("No more rows to copy for table '%s'. Total rows copied: %d.", table_name, total_rows_copied))
+#       break
+#     }
+#
+#     log_info(sprintf("Batch starting at offset %d for table '%s' successfully copied. Rows in batch: %d.", offset, table_name, batch_rows))
+#     # arrow_stream = arrow_batch%>% as_nanoarrow_array_stream()
+#     # Write the Arrow Table batch to MS SQL Server
+#     dbWriteTableArrow(
+#       conn = mssql_conn,
+#       name = DBI::Id(schema = target_schema, table = table_name),  # Target schema and table name
+#       value = arrow_batch ,
+#       append = (offset > 0)  # Append after the first batch
+#     )
+#
+#     # Logging progress
+#     total_rows_copied <- if_else((total_rows_copied + batch_rows)>=total_rows, total_rows, (total_rows_copied + batch_rows))
+#
+#
+#     log_info(glue::glue ("Total {total_rows_copied} rows of total {total_rows} rows copied."))
+#     if (total_rows_copied>= total_rows) break
+#     # Increment offset for the next batch
+#     offset <- offset + batch_size
+#   }
+# }
 
-  repeat {
-    # Read a batch as an Arrow Table using dbGetQueryArrow
-    batch_query <- sprintf("SELECT * FROM %s LIMIT %d OFFSET %d", table_name, batch_size, offset)
-    arrow_batch <- dbGetQueryArrow(duckdb_conn, batch_query)
-    # arrow_batch <- dbSendQueryArrow(duckdb_conn, batch_query)
-    # on.exit(dbClearResult(arrow_batch))  # Ensure query result is cleared
 
-
-    batch_rows <- dbGetQuery(duckdb_conn, sprintf("SELECT count(*) as count from (SELECT * FROM %s LIMIT %d OFFSET %d)", table_name, batch_size, offset))$count
-
-    # Check if arrow_batch is empty or NULL
-    if (is.null(arrow_batch) || batch_rows == 0 ) {
-      log_info(sprintf("No more rows to copy for table '%s'. Total rows copied: %d.", table_name, total_rows_copied))
-      break
-    }
-
-    log_info(sprintf("Batch starting at offset %d for table '%s' successfully copied. Rows in batch: %d.", offset, table_name, batch_rows))
-    # arrow_stream = arrow_batch%>% as_nanoarrow_array_stream()
-    # Write the Arrow Table batch to MS SQL Server
-    dbWriteTableArrow(
-      conn = mssql_conn,
-      name = DBI::Id(schema = target_schema, table = table_name),  # Target schema and table name
-      value = arrow_batch ,
-      append = (offset > 0)  # Append after the first batch
-    )
-
-    # Logging progress
-    total_rows_copied <- if_else((total_rows_copied + batch_rows)>=total_rows, total_rows, (total_rows_copied + batch_rows))
-
-
-    log_info(glue::glue ("Total {total_rows_copied} rows of total {total_rows} rows copied."))
-    if (total_rows_copied>= total_rows) break
-    # Increment offset for the next batch
-    offset <- offset + batch_size
-  }
-}
-
-
-update_progress_bar <- function(total_rows_copied, total_rows, progress_bar, last_logged_percentage) {
+update_progress_bar <- function(total_rows_copied, total_rows, progress_bar, last_logged_percentage, step = 5) {
   # Calculate percentage completed
   percentage_completed <- floor((total_rows_copied / total_rows) * 100)
 
-  # If 1% or more progress has been made, update the progress bar
-  if (percentage_completed > last_logged_percentage) {
-    new_progress <- strrep("-", percentage_completed - last_logged_percentage)
+  # If `step`% or more progress has been made, update the progress bar
+  if (percentage_completed >= last_logged_percentage + step) {
+    new_progress <- strrep("-", (percentage_completed - last_logged_percentage) / step)
     progress_bar <- paste0(progress_bar, new_progress)
 
     # Print updated progress bar and percentage
-    cat(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, percentage_completed, total_rows_copied, total_rows))
+    log_info(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, percentage_completed, total_rows_copied, total_rows))
     flush.console()  # Ensure immediate printing to console
-    log_info(glue::glue ("Total {total_rows_copied} rows of total {total_rows} rows copied."))
   }
 
   return(list(progress_bar = progress_bar, last_logged_percentage = percentage_completed))
 }
+
 
 
 # all the funcitons in csv to mssql already implemented in R dbi functions, so we can refactor them by replacing our functions with dbi functions.

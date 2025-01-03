@@ -140,7 +140,7 @@ for (i in 1:nrow(health_csv_file_list)) {
       mssql_conn = decimal_con,
       table_name = sql_table_name,
       target_schema = "dev",
-      batch_size = 10000
+      batch_size = 100*256
     )
     health_csv_file_list[i, "file_loaded"] = T
   }
