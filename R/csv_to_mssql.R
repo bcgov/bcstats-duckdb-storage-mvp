@@ -119,7 +119,7 @@ health_csv_file_list = read_csv(
 
 
 
-for (i in 1:nrow(health_csv_file_list)) {
+for (i in 99:nrow(health_csv_file_list)) {
   one_table = health_csv_file_list %>% slice(i)
 
   sql_table_name = one_table %>%
@@ -145,15 +145,17 @@ for (i in 1:nrow(health_csv_file_list)) {
     health_csv_file_list[i, "file_loaded"] = T
   }
 
+  # save the meta file back to LAN
+  health_csv_file_list  %>%  write_csv(
+    file.path(
+      lan_csv_file_path,
+      "Population Estimates/Sub-Provincial (Annual)/01_Health Monthly Client Data/",
+      "clr_ext_csv_files_list_with_sql_names.csv"
+    )
+  )
 }
 
-health_csv_file_list  %>%  write_csv(
-  file.path(
-    lan_csv_file_path,
-    "Population Estimates/Sub-Provincial (Annual)/01_Health Monthly Client Data/",
-    "clr_ext_csv_files_list_with_sql_names.csv"
-  )
-)
+
 
 
 

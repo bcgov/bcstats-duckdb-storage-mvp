@@ -177,7 +177,6 @@ copy_csv_to_mssql <- function(csv_path, mssql_conn, table_name, target_schema = 
 log_info <- function(msg, log_file = file_logger, print_flag = T) {
   if (print_flag) cat(sprintf("[%s] %s\n", Sys.time(), msg))  # Simple logging
   info(log_file, msg)
-
 }
 
 create_csv_tbl_duckdb <- function(duckdb_conn, csv_file_path, table_name){
