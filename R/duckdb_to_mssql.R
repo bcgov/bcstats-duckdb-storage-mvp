@@ -38,6 +38,9 @@ library(dplyr)
 library(log4r)
 library(arrow)
 library(nanoarrow)  # For Arrow integration
+library(log4r)
+source("./R/functions.r")
+
 # File paths and connection details
 # Define the path to the test CSV folder
 # This path is retrieved from the configuration file
