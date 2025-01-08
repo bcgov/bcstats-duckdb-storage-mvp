@@ -1,3 +1,42 @@
+CREATE FUNCTION dbo.clean_street_line (
+    @street_line NVARCHAR(MAX),
+    @city NVARCHAR(MAX)
+)
+RETURNS NVARCHAR(MAX)
+AS
+BEGIN
+    DECLARE @cleaned NVARCHAR(MAX);
+
+    -- Convert to uppercase
+    SET @cleaned = UPPER(@street_line);
+
+    -- Remove extra whitespace
+    SET @cleaned = LTRIM(RTRIM(@cleaned));
+    SET @cleaned = REPLACE(@cleaned, '  ', ' '); -- Repeatedly remove double spaces
+    WHILE CHARINDEX('  ', @cleaned) > 0
+        SET @cleaned = REPLACE(@cleaned, '  ', ' ');
+
+    -- Remove non-alphanumeric characters
+    SET @cleaned = REPLACE(@cleaned, ',', '');
+    SET @cleaned = REPLACE(@cleaned, '.', '');
+    SET @cleaned = REPLACE(@cleaned, '/', '');
+    SET @cleaned = REPLACE(@cleaned, '-', '');
+    -- Add more REPLACE() calls as needed for other non-alphanumeric characters
+
+    -- Remove "BC" abbreviation if redundant
+    SET @cleaned = REPLACE(@cleaned, ' BC ', ' ');
+
+    -- Remove the city name
+    SET @cleaned = REPLACE(@cleaned, ' ' + UPPER(@city) + ' ', ' ');
+
+    -- Remove extra whitespace again after all replacements
+    SET @cleaned = LTRIM(RTRIM(@cleaned));
+    WHILE CHARINDEX('  ', @cleaned) > 0
+        SET @cleaned = REPLACE(@cleaned, '  ', ' ');
+
+    RETURN @cleaned;
+END;
+
 WITH COMBINED_HEALTH_TABLE AS  (
    SELECT TOP (1000) '2020' AS effective_year, '02' AS effective_month, '13' AS effective_day,
            [STUDY_ID], [BIRTH_YR_MON], [SEX], [POSTAL_CODE], [CITY], [STREET_LINE],
@@ -621,15 +660,69 @@ WITH COMBINED_HEALTH_TABLE AS  (
              ISNULL([EFF_DATE], '2024-08-01') AS [EFF_DATE],
              ISNULL([END_DATE], '2024-08-31') AS [END_DATE]
     FROM dev.bc_stat_population_estimates_20240926
+),
+
+CleanedData AS (
+    SELECT
+        STUDY_ID,
+        BIRTH_YR_MON,
+        SEX,
+        POSTAL_CODE,
+        CITY,
+        STREET_LINE,
+        dbo.clean_street_line(STREET_LINE, CITY) AS STREET_LINE_CLEAN,
+        EFF_DATE,
+        END_DATE
+    FROM COMBINED_HEALTH_TABLE
+),
+CanonicalAddress AS (
+    SELECT
+        STUDY_ID,
+        BIRTH_YR_MON,
+        SEX,
+        POSTAL_CODE,
+        CITY,
+        STREET_LINE_CLEAN,
+        ROW_NUMBER() OVER (
+            PARTITION BY STUDY_ID, BIRTH_YR_MON, SEX, POSTAL_CODE, CITY
+            ORDER BY LEN(STREET_LINE_CLEAN) DESC
+        ) AS RowNum
+    FROM CleanedData
+),
+CanonicalData AS (
+    SELECT
+        c.STUDY_ID,
+        c.BIRTH_YR_MON,
+        c.SEX,
+        c.POSTAL_CODE,
+        c.CITY,
+        c.STREET_LINE_CLEAN,
+        MIN(d.EFF_DATE) AS EFF_DATE,
+        MAX(d.END_DATE) AS END_DATE
+    FROM CanonicalAddress c
+    INNER JOIN CleanedData d
+        ON c.STUDY_ID = d.STUDY_ID
+        AND c.BIRTH_YR_MON = d.BIRTH_YR_MON
+        AND c.SEX = d.SEX
+        AND c.POSTAL_CODE = d.POSTAL_CODE
+        AND c.CITY = d.CITY
+        AND c.STREET_LINE_CLEAN = d.STREET_LINE_CLEAN
+    WHERE c.RowNum = 1
+    GROUP BY c.STUDY_ID, c.BIRTH_YR_MON, c.SEX, c.POSTAL_CODE, c.CITY, c.STREET_LINE_CLEAN
 )
 SELECT
-[STUDY_ID], [BIRTH_YR_MON], [SEX], [POSTAL_CODE], [CITY], [STREET_LINE],
-          MIN(EFF_DATE) AS EFF_DATE,
-          MAX(END_DATE) AS END_DATE
-INTO dev.FCT_HEALTH_CLIENT
-FROM COMBINED_HEALTH_TABLE
-GROUP BY [STUDY_ID], [BIRTH_YR_MON], [SEX], [POSTAL_CODE], [CITY], [STREET_LINE]
-ORDER BY [STUDY_ID], [BIRTH_YR_MON], [SEX], [POSTAL_CODE], [CITY], [STREET_LINE]
+    STUDY_ID,
+    BIRTH_YR_MON,
+    SEX,
+    POSTAL_CODE,
+    CITY,
+    STREET_LINE_CLEAN AS STREET_LINE,
+    EFF_DATE,
+    END_DATE
+    INTO dev.FCT_HEALTH_CLIENT_CLEAN
+FROM CanonicalData;
 
 
-;
+
+
+
