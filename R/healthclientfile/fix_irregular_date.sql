@@ -18,7 +18,7 @@ WHERE EFF_DATE IS NOT NULL AND END_DATE IS NOT NULL
 --Ensures the update applies only to rows where the irregular date is valid and can be converted.
 --//
 -- Update irregularly formatted EFF_DATE and END_DATE
-UPDATE [HealthFiles_test].[dev].[FCT_HEALTH_CLIENT_ADDRESS_ORDERED]
+UPDATE [HealthFiles_test].[dev].[FCT_HEALTH_CLIENT_ADDRESS_DATE]
 SET EFF_DATE = CONVERT(VARCHAR(10), TRY_CONVERT(DATE, EFF_DATE, 111), 120),
     END_DATE = CONVERT(VARCHAR(10), TRY_CONVERT(DATE, END_DATE, 111), 120)
 WHERE TRY_CONVERT(DATE, EFF_DATE, 111) IS NOT NULL
@@ -26,7 +26,7 @@ WHERE TRY_CONVERT(DATE, EFF_DATE, 111) IS NOT NULL
 
 -- If the irregular format contains other separators (e.g., dots or spaces), you can preprocess the string with REPLACE to make it consistent before conversion.
 
-UPDATE [HealthFiles_test].[dev].[FCT_HEALTH_CLIENT_ADDRESS_ORDERED]
+UPDATE [HealthFiles_test].[dev].[FCT_HEALTH_CLIENT_ADDRESS_DATE]
 SET EFF_DATE = CONVERT(VARCHAR(10), TRY_CONVERT(DATE, REPLACE(EFF_DATE, '/', '-'), 120), 120),
     END_DATE = CONVERT(VARCHAR(10), TRY_CONVERT(DATE, REPLACE(END_DATE, '/', '-'), 120), 120)
 WHERE TRY_CONVERT(DATE, REPLACE(EFF_DATE, '/', '-'), 120) IS NOT NULL

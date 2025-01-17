@@ -61,8 +61,8 @@ decimal_conn <- dbConnect(odbc::odbc(),
 # dev database
 # duckdb_path <-  file.path(lan_csv_file_path, "DATABASE/Citrix/DEV_Duckdb/dev_duckdb.db")
 duckdb_path <-  ":memory:"
-duckdb_conn <-  dbConnect(duckdb::duckdb(),
-                          dbdir = duckdb_path)
+duckdb_conn <-
+  dbConnect(duckdb::duckdb(dbdir = duckdb_path))
 
 # duckdb_conn <- dbConnect(duckdb::duckdb(), dbdir = ":memory:")
 # csv_file_path_1 = file.path(lan_csv_file_path,
