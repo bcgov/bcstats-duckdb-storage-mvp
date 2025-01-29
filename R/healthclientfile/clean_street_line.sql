@@ -1,11 +1,4 @@
-USE [HealthFiles_test]
-GO
-/****** Object:  UserDefinedFunction [dbo].[clean_street_line]    Script Date: 1/17/2025 11:19:11 AM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-ALTER FUNCTION [dbo].[clean_street_line] (
+CREATE FUNCTION dbo.clean_street_line (
     @street_line NVARCHAR(MAX),
     @city NVARCHAR(MAX)
 )

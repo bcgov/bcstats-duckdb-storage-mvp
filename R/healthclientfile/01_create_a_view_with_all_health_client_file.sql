@@ -1,4 +1,4 @@
-CREATE VIEW dev.COMBINED_HEALTH_TABLE AS  (
+CREATE VIEW dev.VIEW_COMBINED_HEALTH_CLIENT AS  (
    SELECT '2020' AS effective_year, '02' AS effective_month, '13' AS effective_day,
            [STUDY_ID],  [POSTAL_CODE], [CITY], [STREET_LINE],
            [LHA],  NULL AS [CHSA], NULL AS [LATITUDE], NULL AS [LONGITUDE],

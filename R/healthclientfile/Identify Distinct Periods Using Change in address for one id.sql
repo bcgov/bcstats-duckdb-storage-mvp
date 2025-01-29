@@ -6,15 +6,15 @@ CleanedData AS (
         POSTAL_CODE,
         STREET_LINE,
         CASE 
-            WHEN STREET_LINE IS NOT NULL AND CITY IS NOT NULL AND LEN(dbo.clean_street_line(STREET_LINE, CITY)) > 0 THEN
+            WHEN STREET_LINE IS NOT NULL  THEN
                 CASE
                     -- Ensure there are at least two words in the cleaned street line
-                    WHEN CHARINDEX(' ', dbo.clean_street_line(STREET_LINE, CITY)) > 0 THEN
+                    WHEN CHARINDEX(' ', STREET_LINE) > 0 THEN
                         LEFT(
-                            dbo.clean_street_line(STREET_LINE, CITY),
-                            CHARINDEX(' ', dbo.clean_street_line(STREET_LINE, CITY) + ' ', CHARINDEX(' ', dbo.clean_street_line(STREET_LINE, CITY) + ' ') + 1) - 1
+                            STREET_LINE,
+                            CHARINDEX(' ', STREET_LINE + ' ', CHARINDEX(' ', STREET_LINE + ' ') + 1) - 1
                         )
-                    ELSE dbo.clean_street_line(STREET_LINE, CITY) -- If no space found, use the entire cleaned street line
+                    ELSE STREET_LINE -- If no space found, use the entire cleaned street line
                 END
             ELSE STREET_LINE
         END AS STREET_FIRST_TWO_WORDS,
