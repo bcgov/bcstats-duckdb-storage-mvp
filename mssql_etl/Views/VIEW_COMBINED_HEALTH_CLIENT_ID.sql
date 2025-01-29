@@ -1,0 +1,17 @@
+-- =============================================
+-- Step 3: Create Centralized View COMBINED_HEALTH_CLIENT_ID
+-- =============================================
+
+IF OBJECT_ID('DEV.VIEW_COMBINED_HEALTH_CLIENT_ID', 'V') IS NOT NULL
+BEGIN
+    DROP VIEW DEV.VIEW_COMBINED_HEALTH_CLIENT_ID;
+    PRINT 'Existing view DEV.VIEW_COMBINED_HEALTH_CLIENT_ID dropped.';
+END
+
+CREATE VIEW DEV.VIEW_COMBINED_HEALTH_CLIENT_ID AS
+SELECT DISTINCT [STUDY_ID], [BIRTH_YR_MON], [SEX]
+FROM VIEW_COMBINED_HEALTH_CLIENT
+
+GO
+
+PRINT 'View DEV.VIEW_COMBINED_HEALTH_CLIENT_ID created successfully.';

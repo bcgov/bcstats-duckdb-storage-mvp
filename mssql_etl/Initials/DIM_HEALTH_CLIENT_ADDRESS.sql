@@ -1,0 +1,23 @@
+-- =============================================
+-- Step 1: Ensure DEV.DIM_HEALTH_CLIENT_ADDRESS Exists with Proper Structure
+-- =============================================
+
+IF OBJECT_ID('DEV.DIM_HEALTH_CLIENT_ADDRESS', 'U') IS NOT NULL
+BEGIN
+    PRINT 'Table DEV.DIM_HEALTH_CLIENT_ADDRESS already exists.';
+END
+ELSE
+BEGIN
+    CREATE TABLE DEV.DIM_HEALTH_CLIENT_ADDRESS (
+        POSTAL_CODE NVARCHAR(20) NOT NULL,
+        STREET_LINE NVARCHAR(100) NOT NULL,
+        CITY NVARCHAR(100) NOT NULL,
+        LATITUDE DECIMAL(9,6) NULL,
+        LONGITUDE DECIMAL(9,6) NULL,
+        CHSA NVARCHAR(50) NULL,
+        LHA NVARCHAR(50) NULL,
+        CONSTRAINT PK_DIM_HEALTH_CLIENT_ADDRESS PRIMARY KEY (POSTAL_CODE, STREET_LINE, CITY)
+    );
+    PRINT 'Table DEV.DIM_HEALTH_CLIENT_ADDRESS created successfully.';
+END
+GO
