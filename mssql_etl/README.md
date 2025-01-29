@@ -98,9 +98,41 @@ The project is organized into a clear and logical folder hierarchy to facilitate
 │
 └── .gitignore
 
+## Set up process
 
+First, we need to run the Initials scripts to create the initial tables and views. The Initials scripts are located in the Initials folder.
 
- 
+1. **Create Raw Tables and Views**:
+   - Execute the scripts  `/Scripts` folder to create the raw tables and views.
+    - `csv_file_meta_data.r` creates meta data for those raw CSV files received from MOH.
+    - `csv_to_mssql.r` loads CSV files and does basic ETL to decimal MSSQL database.
+
+    - `generate_sql_query_for_healthclientfile_in_R.r` generates SQL queries for ETL on the health client file in R.
+      - creates new columns missing in the raw data
+        - creates new columns for the EFF_DATE, END_DATE dimension
+      - fill missing value using default values
+      - create indexes in those tables
+   
+2. **Create Initial Tables and Views**:   
+   - Execute the scripts in the `/Initials` folder to create the initial tables and views.
+   - Ensure that the tables and views are created successfully without any errors.
+   
+3. **Create Stored Procedures**:
+  - maintain and update the views and tables
+  
+4. **Create Views**:
+   - Execute the scripts in the `/Views` folder to create the consolidated views.
+    - view for address dimension
+    - view for ID dimension
+   - Verify that the views are created successfully without any errors.
+   
+5. **Create Indexes**:   
+
+6. **Create Studyid's address history in BC**:
+   - `FCT_HEALTH_CLIENT_ADDRESS_DATE_BATCH_PROCESSING.sql` creates a batch processing table for the address history.
+   
+   
+   
 ## Database Objects
 
 ### Views
@@ -137,46 +169,6 @@ The project is organized into a clear and logical folder hierarchy to facilitate
 
 All SQL scripts and database objects are managed using **Git**. This ensures version tracking, collaboration, and rollback capabilities.
 
-1. **Initialize Repository**:
-   - Navigate to the project directory.
-   - Initialize a Git repository:
-     ```bash
-     git init
-     ```
-
-2. **Add Remote Repository**:
-   - Connect to a remote repository (e.g., GitHub, GitLab):
-     ```bash
-     git remote add origin https://github.com/yourusername/HealthClientRosterProject.git
-     ```
-
-3. **Commit Changes**:
-   - Stage and commit all files:
-     ```bash
-     git add .
-     git commit -m "Initial commit of Health Client Roster Management System"
-     ```
-
-4. **Push to Remote**:
-   - Push commits to the remote repository:
-     ```bash
-     git push -u origin master
-     ```
-
-### Using SQL Server Data Tools (SSDT)
-
-For enhanced development experience and integration with Visual Studio:
-
-1. **Install SSDT**:
-   - Download and install SSDT from [Microsoft](https://docs.microsoft.com/en-us/sql/ssdt/download-sql-server-data-tools-ssdt).
-
-2. **Create a Database Project**:
-   - Open Visual Studio.
-   - Create a new **SQL Server Database Project**.
-   - Import existing database schemas or add scripts from the project structure.
-
-3. **Build and Deploy**:
-   - Use SSDT's build and publish features to deploy changes to different environments.
 
 ## Usage
 

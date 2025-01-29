@@ -259,3 +259,59 @@ cat(sql_query)
 
 sql_query %>% write_lines("./R/healthclientfile/union_all_health_client_file.sql")
 
+# Define the columns to index
+# Adjust this list if certain tables have different relevant columns
+columns_to_index <- c("STUDY_ID", "EFF_DATE", "POSTAL_CODE", "STREET_LINE")
+
+# Function to generate CREATE INDEX statement
+generate_create_index <- function(table, columns) {
+  # Create a unique index name based on table and columns
+  index_name <- paste0("IDX_", table, "_", paste(columns, collapse = "_"))
+  
+  # Construct the CREATE INDEX statement with proper quoting
+  # Using square brackets to handle special characters or spaces in table/column names
+  columns_str <- paste(paste0("[", columns, "]"), collapse = ", ")
+  sql <- paste0(
+    "CREATE INDEX [", index_name, "]\n",
+    "ON [dev].[", table, "] (", columns_str, ");\n"
+  )
+  
+  return(sql)
+}
+
+# Generate all CREATE INDEX statements
+create_index_statements <- sapply(table_names, generate_create_index, columns = columns_to_index)
+
+# Optionally, write the statements to a .sql file
+writeLines(create_index_statements, con = "Create_Indexes.sql")
+
+# Print the generated SQL statements
+cat(create_index_statements, sep = "\n")
+
+
+# Execute each CREATE INDEX statement
+for (sql in create_index_statements) {
+  tryCatch({
+    dbExecute(con, sql)
+    cat("Successfully created index.\n")
+  }, error = function(e) {
+    cat("Error creating index:", e$message, "\n")
+  })
+}
+
+
+# -- Example SQL query to verify indexes on a specific table
+# SELECT 
+#     ind.name AS IndexName,
+#     ind.type_desc AS IndexType,
+#     col.name AS ColumnName
+# FROM 
+#     sys.indexes ind 
+# INNER JOIN 
+#     sys.index_columns ic ON ind.object_id = ic.object_id AND ind.index_id = ic.index_id 
+# INNER JOIN 
+#     sys.columns col ON ic.object_id = col.object_id AND ic.column_id = col.column_id 
+# WHERE 
+#     ind.object_id = OBJECT_ID('dev.CLR_EXT_20200213_for_201107') -- Replace with your table name
+# ORDER BY 
+#     ind.name, ic.key_ordinal;
