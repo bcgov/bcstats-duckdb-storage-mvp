@@ -33,17 +33,22 @@ SELECT
     POSTAL_CODE,
     STREET_LINE,
     ESTIMATED_EFF_DATE as EFF_DATE,
-    ESTIMATED_END_DATE AS END_DATE
+    ESTIMATED_END_DATE AS END_DATE,
+    CASE 
+    WHEN STREET_LINE IS NOT NULL THEN
+        CASE
+            WHEN CHARINDEX(' ', STREET_LINE) > 0 THEN
+                LEFT(
+                    STREET_LINE,
+                    CHARINDEX(' ', STREET_LINE + ' ', CHARINDEX(' ', STREET_LINE + ' ') + 1) - 1
+                )
+            ELSE STREET_LINE
+        END
+    ELSE STREET_LINE
+    END AS STREET_FIRST_TWO_WORDS,
+    ROW_NUMBER() OVER (PARTITION BY STUDY_ID ORDER BY ESTIMATED_EFF_DATE, ESTIMATED_END_DATE) AS RecordID
     INTO #CleanedData
 FROM [HealthFiles_test].[dev].[VIEW_COMBINED_HEALTH_CLIENT] S
--- FROM [HealthFiles_test].[dev].[BC_STAT_POPULATION_ESTIMATES_20240926] S
--- WHERE S.STUDY_ID in (SELECT STUDY_ID FROM [dev].[DIM_HEALTH_CLIENT_ID_TEST]);
--- ORDER BY S.STUDY_ID, S.EFF_DATE;
--- WHERE EXISTS (
---     SELECT 1 FROM #CurrentBatch C WHERE S.STUDY_ID = C.STUDY_ID
--- );
--- INNER JOIN #CurrentBatch C
---             ON S.STUDY_ID = C.STUDY_ID;
 WHERE s.STUDY_ID in ('001A9042FA9A48CC01594B4330D48391AD1B025655E2C0D1','001A9042FA9A48CC000A9EFD87B1EF9D2F253D14D008583D', '001A9042FA9A48CC0019266BFE723D08B49978E5B63CCF3D', '001A9042FA9A48CC0003F4E4F2A0F856C01CC20F04883BBA'); -- Replace with your STUDY_ID
 
 
@@ -73,28 +78,12 @@ SELECT
     CD.EFF_DATE,
     CD.END_DATE,
     CD.RecordID,
-    LAG(CD.POSTAL_CODE) OVER (PARTITION BY CD.STUDY_ID ORDER BY CD.EFF_DATE, CD.RecordID) AS Prev_POSTAL_CODE,
-    LAG(CD.STREET_LINE) OVER (PARTITION BY CD.STUDY_ID ORDER BY CD.EFF_DATE, CD.RecordID) AS Prev_STREET_LINE,
-    LAG(CD.STREET_FIRST_TWO_WORDS ) OVER (PARTITION BY CD.STUDY_ID ORDER BY CD.EFF_DATE, CD.RecordID) AS Prev_STREET_FIRST_TWO_WORDS
+    LAG(CD.POSTAL_CODE) OVER (PARTITION BY CD.STUDY_ID ORDER BY  CD.RecordID) AS Prev_POSTAL_CODE,
+    LAG(CD.STREET_LINE) OVER (PARTITION BY CD.STUDY_ID ORDER BY  CD.RecordID) AS Prev_STREET_LINE,
+    LAG(CD.STREET_FIRST_TWO_WORDS ) OVER (PARTITION BY CD.STUDY_ID ORDER BY  CD.RecordID) AS Prev_STREET_FIRST_TWO_WORDS
 INTO #LaggedData
-        FROM (
-            SELECT *,
-                -- Extract the first two words from STREET_LINE
-                CASE 
-                    WHEN STREET_LINE IS NOT NULL THEN
-                        CASE
-                            WHEN CHARINDEX(' ', STREET_LINE) > 0 THEN
-                                LEFT(
-                                    STREET_LINE,
-                                    CHARINDEX(' ', STREET_LINE + ' ', CHARINDEX(' ', STREET_LINE + ' ') + 1) - 1
-                                )
-                            ELSE STREET_LINE
-                        END
-                    ELSE STREET_LINE
-                END AS STREET_FIRST_TWO_WORDS,
-                ROW_NUMBER() OVER (PARTITION BY STUDY_ID ORDER BY EFF_DATE, END_DATE) AS RecordID
-            FROM  #CleanedData) CD
-ORDER BY CD.STUDY_ID, CD.EFF_DATE;
+FROM  #CleanedData CD
+ORDER BY CD.STUDY_ID, CD.RecordID;
 
 -- Create index to optimize window functions
 CREATE NONCLUSTERED INDEX IX_LaggedData_EFF_DATE ON #LaggedData (STUDY_ID,EFF_DATE);
@@ -121,19 +110,16 @@ SELECT
     LD.END_DATE,
     LD.RecordID,
     CASE 
-        WHEN LD.Prev_POSTAL_CODE IS NULL 
-            --  OR LD.Prev_STREET_LINE IS NULL 
-             OR LD.Prev_POSTAL_CODE != LD.POSTAL_CODE 
-            --  OR LD.Prev_STREET_LINE != LD.Prev_STREET_LINE 
-        THEN 1 
+        WHEN LD.Prev_POSTAL_CODE IS NULL THEN 1             
+        WHEN ISNULL(LD.Prev_POSTAL_CODE, '') != ISNULL(LD.POSTAL_CODE, '')   THEN 1  -- it is rare that postal code is null                    
         -- Compare street_line values treating NULL as an empty string.
-        -- WHEN ISNULL(LD.Prev_STREET_LINE, '') <> ISNULL(LD.STREET_LINE, '') THEN 1
-        WHEN ISNULL(LD.Prev_STREET_FIRST_TWO_WORDS, '') <> ISNULL(LD.STREET_FIRST_TWO_WORDS, '') THEN 1
+        -- WHEN ISNULL(LD.Prev_STREET_LINE, '') <> ISNULL(LD.STREET_LINE, '') THEN 1  -- STREET LINE are messy, could have typo etc.
+        WHEN ISNULL(LD.Prev_STREET_FIRST_TWO_WORDS, '') <> ISNULL(LD.STREET_FIRST_TWO_WORDS, '') THEN 1  -- STREET_FIRST_TWO_WORDS are much clean
         ELSE 0 
     END AS ChangeFlag
  INTO #ChangeFlagData
 FROM #LaggedData LD
-ORDER BY LD.STUDY_ID,LD.EFF_DATE;
+ORDER BY LD.STUDY_ID,LD.RecordID;
 
 -- Create index to optimize subsequent operations
 CREATE NONCLUSTERED INDEX IX_ChangeFlagData_EFF_DATE ON #ChangeFlagData (STUDY_ID,EFF_DATE);
@@ -158,12 +144,13 @@ SELECT
     CFD.STREET_FIRST_TWO_WORDS,
     CFD.EFF_DATE,
     CFD.END_DATE,
+    CFD.RecordID,
     CFD.ChangeFlag,
     -- Cumulative sum to assign GroupAddressKey
-    SUM(CASE WHEN CFD.ChangeFlag = 1 THEN 1 ELSE 0 END) OVER (PARTITION BY CFD.STUDY_ID ORDER BY  CFD.EFF_DATE, CFD.RecordID ROWS UNBOUNDED PRECEDING) AS GroupAddressKey
+    SUM(CASE WHEN CFD.ChangeFlag = 1 THEN 1 ELSE 0 END) OVER (PARTITION BY CFD.STUDY_ID ORDER BY CFD.RecordID ROWS UNBOUNDED PRECEDING) AS GroupAddressKey
 INTO #GroupedKeyData
 FROM #ChangeFlagData CFD
-ORDER BY CFD.STUDY_ID, CFD.EFF_DATE;
+ORDER BY CFD.STUDY_ID, CFD.RecordID;
 
 -- Create index to optimize aggregation
 -- CREATE NONCLUSTERED INDEX IX_GroupedKeyData_GroupAddressKey ON #GroupedKeyData (STUDY_ID, GroupAddressKey);
@@ -189,7 +176,7 @@ SELECT
     MIN(GK.EFF_DATE) AS EFF_DATE,
     MAX(GK.END_DATE) AS END_DATE,
     GK.GroupAddressKey
--- INTO #GroupedData
+INTO #GroupedData
 FROM #GroupedKeyData GK
 GROUP BY GK.STUDY_ID, GK.GroupAddressKey, GK.POSTAL_CODE, GK.STREET_FIRST_TWO_WORDS;
 
@@ -201,53 +188,55 @@ PRINT 'Step 5: Aggregate Grouped Data took ' + CAST(@DurationSeconds AS NVARCHAR
 -- Step 6: Insert Aggregated Data into Target Table (Optimized Join)
 -- =============================================
 
--- SET @StartTime = SYSDATETIME();
+SET @StartTime = SYSDATETIME();
 -- Step 6.1: Delete existing records for STUDY_IDs present in #GroupedData
--- DELETE D
--- FROM DEV.FCT_HEALTH_CLIENT_ADDRESS_DATE D
--- INNER JOIN #GroupedData GD
---     ON D.STUDY_ID = GD.STUDY_ID;
--- PRINT 'Existing records for STUDY_IDs have been deleted from DEV.FCT_HEALTH_CLIENT_ADDRESS_DATE.';
+DELETE D
+FROM DEV.FCT_HEALTH_CLIENT_ADDRESS_DATE D
+INNER JOIN #GroupedData GD
+    ON D.STUDY_ID = GD.STUDY_ID;
+PRINT 'Existing records for STUDY_IDs have been deleted from DEV.FCT_HEALTH_CLIENT_ADDRESS_DATE.';
     
--- -- Insert the processed data into the target table
--- INSERT INTO DEV.FCT_HEALTH_CLIENT_ADDRESS_DATE (
---     STUDY_ID,
---     GroupAddressKey,
---     POSTAL_CODE,
---     STREET_LINE,
---     EFF_DATE,
---     END_DATE,
---     CITY,
---     LATITUDE,
---     LONGITUDE
--- )
--- SELECT 
---     GD.STUDY_ID,
---     GD.GroupAddressKey,
---     GD.POSTAL_CODE,
---     GD.STREET_LINE,
---     GD.EFF_DATE,
---     GD.END_DATE,       
---     B.[CITY], 
---     B.LATITUDE, 
---     B.LONGITUDE
--- FROM #GroupedData GD
--- LEFT JOIN dev.DIM_HEALTH_CLIENT_ADDRESS B
---     ON GD.POSTAL_CODE = B.POSTAL_CODE 
---     AND GD.STREET_LINE = B.STREET_LINE;
+-- Insert the processed data into the target table
+INSERT INTO DEV.FCT_HEALTH_CLIENT_ADDRESS_DATE (
+    STUDY_ID,
+    GroupAddressKey,
+    POSTAL_CODE,
+    STREET_LINE,
+    -- STREET_FIRST_TWO_WORDS,
+    EFF_DATE,
+    END_DATE,
+    CITY,
+    LATITUDE,
+    LONGITUDE
+)
+SELECT 
+    GD.STUDY_ID,
+    GD.GroupAddressKey,
+    GD.POSTAL_CODE,
+    GD.STREET_LINE,
+    -- GD.STREET_FIRST_TWO_WORDS,
+    GD.EFF_DATE,
+    GD.END_DATE,       
+    B.[CITY], 
+    B.LATITUDE, 
+    B.LONGITUDE
+FROM #GroupedData GD
+LEFT JOIN dev.DIM_HEALTH_CLIENT_ADDRESS B
+    ON GD.POSTAL_CODE = B.POSTAL_CODE 
+    AND GD.STREET_LINE = B.STREET_LINE;
 
--- SET @EndTime = SYSDATETIME();
--- SET @DurationSeconds = DATEDIFF(SECOND, @StartTime, @EndTime);
--- PRINT 'Step 6: Insert Aggregated Data into Target Table took ' + CAST(@DurationSeconds AS NVARCHAR) + ' seconds.';
+SET @EndTime = SYSDATETIME();
+SET @DurationSeconds = DATEDIFF(SECOND, @StartTime, @EndTime);
+PRINT 'Step 6: Insert Aggregated Data into Target Table took ' + CAST(@DurationSeconds AS NVARCHAR) + ' seconds.';
 
--- -- =============================================
--- -- Step 7: Cleanup Temporary Tables
--- -- =============================================
+-- =============================================
+-- Step 7: Cleanup Temporary Tables
+-- =============================================
 
--- SET @StartTime = SYSDATETIME();
+SET @StartTime = SYSDATETIME();
 
--- DROP TABLE IF EXISTS #CleanedData, #LaggedData, #ChangeFlagData, #GroupedKeyData, #GroupedData;
+DROP TABLE IF EXISTS #CleanedData, #LaggedData, #ChangeFlagData, #GroupedKeyData, #GroupedData;
 
--- SET @EndTime = SYSDATETIME();
--- SET @DurationSeconds = DATEDIFF(SECOND, @StartTime, @EndTime);
--- PRINT 'Step 7: Cleanup Temporary Tables took ' + CAST(@DurationSeconds AS NVARCHAR) + ' seconds.';
+SET @EndTime = SYSDATETIME();
+SET @DurationSeconds = DATEDIFF(SECOND, @StartTime, @EndTime);
+PRINT 'Step 7: Cleanup Temporary Tables took ' + CAST(@DurationSeconds AS NVARCHAR) + ' seconds.';

@@ -2,9 +2,8 @@
 -- Step 0: Initialize Timing Variables
 -- =============================================
 
-DECLARE @StartTime1 DATETIME2;
 DECLARE @StartTime DATETIME2, @EndTime DATETIME2, @DurationSeconds FLOAT;
-DECLARE @BatchSize INT =2; -- Adjust the batch size as needed
+DECLARE @BatchSize INT = 2; -- Adjust the batch size as needed
 DECLARE @ProcessedCount INT = 0;
 DECLARE @TotalCount INT;
 
@@ -34,10 +33,8 @@ BEGIN
         BEGIN TRANSACTION;
 
         -- Initialize Timing for the Batch
-        SET @StartTime1 = SYSDATETIME();
+        SET @StartTime = SYSDATETIME();
 
-
-        IF OBJECT_ID('tempdb..#CurrentBatch') IS NOT NULL DROP TABLE #CurrentBatch;
         -- Select the top @BatchSize STUDY_IDs for this batch
         SELECT TOP (@BatchSize) STUDY_ID
         INTO #CurrentBatch
@@ -68,8 +65,8 @@ BEGIN
                     END
                 ELSE STREET_LINE
             END AS STREET_FIRST_TWO_WORDS,
-            EFF_DATE,
-            END_DATE
+            CAST(EFF_DATE AS DATE) AS EFF_DATE,
+            CAST(END_DATE AS DATE) AS END_DATE
         INTO #CleanedData
         FROM [HealthFiles_test].[dev].[VIEW_COMBINED_HEALTH_CLIENT] S
         INNER JOIN #CurrentBatch C
@@ -78,14 +75,10 @@ BEGIN
         -- Create indexes to optimize subsequent operations
         CREATE NONCLUSTERED INDEX IX_CleanedData_EFF_DATE ON #CleanedData (STUDY_ID, EFF_DATE);
         
-        SET @EndTime = SYSDATETIME();
-        SET @DurationSeconds = DATEDIFF(SECOND, @StartTime1, @EndTime);
-        PRINT 'Step 3: Clean and Prepare Data took ' + CAST(@DurationSeconds AS NVARCHAR) + ' seconds.';
-
         -- =============================================
         -- Step 4: Compute Previous Values Using Window Functions
         -- =============================================
-        SET @StartTime = SYSDATETIME();
+
         -- Drop temporary tables if they already exist
         IF OBJECT_ID('tempdb..#LaggedData') IS NOT NULL DROP TABLE #LaggedData;
 
@@ -112,15 +105,9 @@ BEGIN
         -- Create index to optimize window functions
         CREATE NONCLUSTERED INDEX IX_LaggedData_EFF_DATE ON #LaggedData (EFF_DATE);
 
-        SET @EndTime = SYSDATETIME();
-        SET @DurationSeconds = DATEDIFF(SECOND, @StartTime, @EndTime);
-        PRINT 'Step 4: Compute Previous Values Using Window Functions took ' + CAST(@DurationSeconds AS NVARCHAR) + ' seconds.';
-
         -- =============================================
         -- Step 5: Flag Changes in Address
         -- =============================================
-
-        SET @StartTime = SYSDATETIME();
 
         -- Drop temporary tables if they already exist
         IF OBJECT_ID('tempdb..#ChangeFlagData') IS NOT NULL DROP TABLE #ChangeFlagData;
@@ -151,17 +138,9 @@ BEGIN
         -- Create index to optimize subsequent operations
         CREATE NONCLUSTERED INDEX IX_ChangeFlagData_EFF_DATE ON #ChangeFlagData (EFF_DATE);
 
-        SET @EndTime = SYSDATETIME();
-        SET @DurationSeconds = DATEDIFF(SECOND, @StartTime, @EndTime);
-        PRINT 'Step 5: Flag Changes in Address took ' + CAST(@DurationSeconds AS NVARCHAR) + ' seconds.';
-
-
         -- =============================================
         -- Step 6: Assign GroupAddressKey Using Cumulative Sum
         -- =============================================
-
-        
-        SET @StartTime = SYSDATETIME();
 
         -- Drop temporary tables if they already exist
         IF OBJECT_ID('tempdb..#GroupedKeyData') IS NOT NULL DROP TABLE #GroupedKeyData;
@@ -186,15 +165,9 @@ BEGIN
         -- Create index to optimize aggregation
         CREATE NONCLUSTERED INDEX IX_GroupedKeyData_GroupAddressKey ON #GroupedKeyData (GroupAddressKey);
 
-        SET @EndTime = SYSDATETIME();
-        SET @DurationSeconds = DATEDIFF(SECOND, @StartTime, @EndTime);
-        PRINT 'Step 6: Assign GroupAddressKey Using Cumulative Sum took ' + CAST(@DurationSeconds AS NVARCHAR) + ' seconds.';
-
         -- =============================================
         -- Step 7: Aggregate Grouped Data
         -- =============================================
-
-        SET @StartTime = SYSDATETIME();
 
         -- Drop temporary tables if they already exist
         IF OBJECT_ID('tempdb..#GroupedData') IS NOT NULL DROP TABLE #GroupedData;
@@ -212,15 +185,9 @@ BEGIN
         FROM #GroupedKeyData GK
         GROUP BY GK.STUDY_ID, GK.POSTAL_CODE, GK.STREET_FIRST_TWO_WORDS, GK.GroupAddressKey;
 
-        SET @EndTime = SYSDATETIME();
-    SET @DurationSeconds = DATEDIFF(SECOND, @StartTime, @EndTime);
-    PRINT 'Step 7: Aggregate Grouped Data took ' + CAST(@DurationSeconds AS NVARCHAR) + ' seconds.';
-
         -- =============================================
         -- Step 8: Insert Aggregated Data into Target Table (Optimized Join)
         -- =============================================
-
-        SET @StartTime = SYSDATETIME();
 
         -- Step 8.1: Delete existing records for STUDY_IDs present in #GroupedData
         DELETE D
@@ -256,18 +223,6 @@ BEGIN
             ON GD.POSTAL_CODE = B.POSTAL_CODE 
             AND GD.STREET_LINE = B.STREET_LINE;
 
-        PRINT 'New records have been inserted into DEV.FCT_HEALTH_CLIENT_ADDRESS_HISTORY.';
-
-
-        SET @EndTime = SYSDATETIME();
-        SET @DurationSeconds = DATEDIFF(SECOND, @StartTime, @EndTime);
-        PRINT 'Step 8: Insert Aggregated Data into Target Table took ' + CAST(@DurationSeconds AS NVARCHAR) + ' seconds.';
-
-        -- Step 8.3: Remove processed STUDY_IDs from #StudyIDList
-        DELETE FROM #StudyIDList
-        WHERE STUDY_ID IN (SELECT STUDY_ID FROM #GroupedData);
-        PRINT 'Processed STUDY_IDs have been removed from #StudyIDList.';
-
         -- =============================================
         -- Step 9: Cleanup Temporary Tables for the Batch
         -- =============================================
@@ -276,9 +231,8 @@ BEGIN
 
         -- Calculate Duration for the Batch
         SET @EndTime = SYSDATETIME();
-        SET @DurationSeconds = DATEDIFF(SECOND, @StartTime1, @EndTime);
+        SET @DurationSeconds = DATEDIFF(SECOND, @StartTime, @EndTime);
         SET @ProcessedCount = @ProcessedCount + (SELECT COUNT(*) FROM #CurrentBatch);
-
         PRINT 'Processed ' + CAST(@ProcessedCount AS NVARCHAR) + ' out of ' + CAST(@TotalCount AS NVARCHAR) + ' STUDY_IDs. Current Batch Duration: ' + CAST(@DurationSeconds AS NVARCHAR) + ' seconds.';
 
         DROP TABLE IF EXISTS #CleanedData, #LaggedData, #ChangeFlagData, #GroupedKeyData, #GroupedData, #CurrentBatch;
@@ -292,23 +246,18 @@ BEGIN
         PRINT 'An error occurred during batch processing.';
         PRINT ERROR_MESSAGE();
 
-        -- -- Retrieve error information
-        -- DECLARE @ErrorMessage NVARCHAR(4000);
-        -- DECLARE @ErrorSeverity INT;
-        -- DECLARE @ErrorState INT;
+        -- Retrieve error information
+        DECLARE @ErrorMessage NVARCHAR(4000);
+        DECLARE @ErrorSeverity INT;
+        DECLARE @ErrorState INT;
         
-        -- SELECT 
-        --     @ErrorMessage = ERROR_MESSAGE(),
-        --     @ErrorSeverity = ERROR_SEVERITY(),
-        --     @ErrorState = ERROR_STATE();
+        SELECT 
+            @ErrorMessage = ERROR_MESSAGE(),
+            @ErrorSeverity = ERROR_SEVERITY(),
+            @ErrorState = ERROR_STATE();
         
-        -- -- Raise the error to notify the calling environment
-        -- RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState);
-
-
-        -- Optionally, remove the problematic STUDY_IDs to prevent infinite looping
-        DELETE FROM #StudyIDList
-        WHERE STUDY_ID IN (SELECT STUDY_ID FROM #CurrentBatch);
+        -- Raise the error to notify the calling environment
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState);
 
         -- Optionally, you can decide to exit the loop or continue
         BREAK;
