@@ -1,0 +1,133 @@
+---
+title: "health_client_files_load_mssql"
+format: docx
+editor: visual
+---
+
+# README: Health Client Roster ETL with R, DuckDB, and SQL Server
+
+## 1. Overview
+These scripts demonstrate a process for:
+1. **Loading** a set of CSV files containing BC Health client roster data using **DuckDB** (via `copy_duckdb_csv_to_mssql`) into a **SQL Server** database.
+2. **Performing ETL** (Extract, Transform, Load) tasks, including:
+   - Adding or updating missing columns (e.g. `EFF_DATE`, `END_DATE`).
+   - Combining data from multiple monthly tables into a **single view** (`VIEW_COMBINED_HEALTH_CLIENT`).
+   - Creating and rebuilding **indexes** to speed up queries.
+   - Compressing tables (PAGE or ROW compression) to reduce storage.
+3. **Address history aggregation** at the STUDY_ID level, identifying unique address changes and storing them into a fact table (`FCT_HEALTH_CLIENT_ADDRESS_HISTORY`).
+
+These steps ensure that monthly health client data is systematically processed, indexed, and aggregated for more efficient queries.
+
+## 2. File Descriptions
+**1. CSV Loading Script**: Reads a list of CSV files and their corresponding SQL table names from a metadata table (`clr_ext_csv_files_list_with_sql_names.csv`). Each file is imported into the `dev` schema in SQL Server, applying the correct column types and handling older data with fewer columns differently.
+
+**2. ETL and Aggregation Script**: Contains logic to:
+- Alter existing monthly tables to ensure consistent columns (e.g., `CHSA`, `LATITUDE`, `LONGITUDE`, `EFF_DATE`, `END_DATE`).
+- Create or update indexes (for example on `STUDY_ID`) to improve performance.
+- Generate a union of all monthly tables via `CREATE VIEW dev.VIEW_COMBINED_HEALTH_CLIENT`.
+- Provide a method to compute and store unique address histories for each `STUDY_ID` into a new table (`FCT_HEALTH_CLIENT_ADDRESS_HISTORY`).
+
+## 3. Required Setup
+1. **Config File**: The scripts read from a `config::get(...)` calls. This implies a config file (e.g., `config.yml`) with entries like:
+   ```yml
+   decimal:
+     driver: 'SQL Server'
+     server: 'YourServerName'
+     database: 'YourDatabase'
+   myschema: 'dev'
+   lan_csv_file_path: 'path/to/your/csv/files'
+   ```
+   Ensure your local paths and credentials match.
+2. **R Libraries**:
+   - `tidyverse`, `dplyr`, `stringr`, `fs`, etc. for data manipulation.
+   - `DBI` and `odbc` for database connectivity.
+   - `duckdb` for DuckDB usage.
+   - `nanoarrow` for DuckDB <-> Arrow integration.
+   - `config` for reading config files.
+   - `log4r` for logging.
+3. **Database Access**: You need appropriate permissions to create and alter tables in the target `dev` schema on the SQL Server instance.
+
+## 4. Step-by-Step Usage
+### Step A: CSV to SQL
+1. **Update the CSV list** in `clr_ext_csv_files_list_with_sql_names.csv`, ensuring the following fields are correct:
+   - `file_name`: The CSV filename.
+   - `subfolder_path`: The relative or absolute path to that file.
+   - `sql_table_name`: The table name in SQL Server.
+   - `file_loaded`: A boolean that is initially `FALSE` if the file is not loaded yet.
+2. **Configure** your R environment:
+   - Confirm that `lan_csv_file_path` is set in your config.
+   - Confirm the `decimal` config for DB connections.
+3. **Run** the CSV loading script. It will:
+   - Read each CSV file.
+   - Create or update the corresponding table in the `dev` schema.
+   - Write logs to `log_file_path`.
+
+### Step B: ETL, Indexing, and View Creation
+1. **Connect to the same SQL Server**.
+2. **Alter Tables**:
+   - Add missing columns (`CHSA`, `LATITUDE`, `LONGITUDE`, `EFF_DATE`, `END_DATE`, etc.) based on the date implied in the table name.
+   - Update those columns with default or derived values.
+3. **Create or Rebuild Indexes**:
+   - A single column index on `STUDY_ID` is created for each monthly table to speed up lookups.
+   - Additional indexes (e.g., multi-column indexes) can also be added if needed.
+4. **Create a Combined View**:
+   - A big `UNION ALL` query merges all monthly tables into `dev.VIEW_COMBINED_HEALTH_CLIENT`.
+5. **Optionally** compress each table using PAGE or ROW compression to save storage.
+
+### Step C: Address History Aggregation
+1. **Overview**:
+   - The script processes each `STUDY_ID` from `dev.DIM_HEALTH_CLIENT_ID` in batches or one by one.
+   - For each STUDY_ID, we gather all monthly address records from `VIEW_COMBINED_HEALTH_CLIENT`.
+   - We remove duplicates based on postal code and the first two words of `STREET_LINE`.
+   - We then insert the simplified results into `dev.FCT_HEALTH_CLIENT_ADDRESS_HISTORY`.
+2. **Details**:
+   - A series of temporary tables (`#CleanedData`, `#LaggedData`, etc.) tracks changes in addresses.
+   - We use SQL window functions (`LAG`) to detect changes in postal code and street lines.
+   - Rows with changed addresses receive a new `GroupAddressKey`.
+   - The final aggregated rows are appended to `FCT_HEALTH_CLIENT_ADDRESS_HISTORY`.
+3. **Performance Enhancements**:
+   - Indexing the monthly tables by `STUDY_ID` is crucial.
+   - We maintain a `Status` in `dev.DIM_HEALTH_CLIENT_ID` to mark whether a `STUDY_ID` is pending, processing, or processed.
+
+## 5. How To Replicate or Improve
+1. **Prerequisite**:
+   - A working ODBC or DSN for the SQL Server.
+   - Local or shared drive access for CSV files.
+2. **Validation**:
+   - Ensure each CSV has consistent columns or handle exceptions in the script logic.
+   - Validate data types (especially dates) to avoid type mismatches.
+3. **Logging**:
+   - The scripts output logs to `log_file_path` daily with a timestamp. Check these logs for warnings or errors.
+4. **Possible Improvements**:
+   - Convert large `UNION ALL` queries into partitioned tables or partitioned views for better manageability.
+   - Use incremental loading (load only new or changed records) instead of re-importing entire CSVs.
+   - Apply advanced indexing strategies (e.g., composite indexes) for queries that rely on multiple columns.
+   - Replace repeated code blocks with more robust functions or a parameterized approach.
+   - Explore parallel processing or chunked loading for large data volumes to improve performance.
+
+## 6. Troubleshooting
+1. **Encoding Issues**:
+   - If you encounter errors reading CSV files (especially older files), convert them to UTF-8 prior to loading.
+   - Example: `iconv -f ISO-8859-2 -t UTF-8 input.csv > output_utf8.csv`.
+2. **Permission Denied**:
+   - Confirm your SQL login can create/alter tables in `dev` schema.
+3. **Slow Performance**:
+   - Make sure the indexes are created before searching or joining across tables.
+   - Check the recommended batch size settings if you experience slow file loads.
+   - Evaluate compression overhead if the data is frequently updated.
+4. **Missing Columns**:
+   - If the script complains about missing columns, ensure the column additions (i.e., `ALTER TABLE dev.<table> ADD ...`) have run.
+5. **Mismatched Data Types**:
+   - For columns like `EFF_DATE` or `END_DATE`, confirm that all monthly tables have consistent data types.
+
+## 7. Conclusion
+By following these steps, colleagues can replicate the end-to-end process:
+- **Load** monthly CSV files into SQL Server.
+- **Augment** columns and indexes.
+- **Union** data into a comprehensive view.
+- **Aggregate** addresses at the STUDY_ID level.
+
+This pipeline may be adapted for new data sources or additional transformations, and the indexing strategy should evolve as data grows.
+
+**Contact** the Data Engineering or Data Science team if you have further questions about schema changes, performance tuning, or if you plan to extend these scripts significantly.
+
