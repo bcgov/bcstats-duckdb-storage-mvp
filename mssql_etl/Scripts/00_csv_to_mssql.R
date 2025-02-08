@@ -40,11 +40,17 @@ library(arrow)
 library(nanoarrow)  # For Arrow integration
 library(duckdb)
 library(log4r)
+library(glue)
+library(readr)
+# library(safepaths)
+# install.packages("\\\\Client\\C$\\Users\\YourUserName\\Downloads\\archive_1.1.11.tar.gz", repos = NULL, type = "source")
+library(archive)
 source("./mssql_etl/Scripts/functions.r")
 # source("./R/functions.r")
 
 # This path is retrieved from the configuration file
 lan_csv_file_path = config::get("lan_csv_file_path")
+
 
 
 # ---- Configuration ----
@@ -78,6 +84,9 @@ file_logger = logger(appenders = file_appender(log_file_path))
 info(file_logger, "Starte reading csv file write to sqlserver")
 
 
+############################################################################################################################################
+# Health monthly client data
+############################################################################################################################################
 
 # Read table name and CSV file path and if already created, and if need to be created from an Excel file which should be defined by DBA/project manager.
 # table_list = tibble()
@@ -188,5 +197,114 @@ for (i in 1:nrow(health_csv_file_list)) {
 }
 
 
+
+############################################################################################################################################
+# bca folio address, sales, description and value files
+############################################################################################################################################
+# bca folio address, sales, description and value files are inside a zip file, so we need a different function to load them before we use csv_to_mssql.
+info(file_logger, "Start reading bc assessment file and writing to sqlserver")
+
+library(archive)
+library(readr)
+# Load the tools package
+library(tools)
+# Create a vector containing the keywords you want to match in the CSV filenames:
+csv_path_key_list <- c("address", "description", "sales", "value")
+csv_path_key_list <- paste0("bca_folio_", csv_path_key_list)
+
+# Path to the main ZIP file
+# Specify the path to your ZIP file
+main_zip_path <- file.path(lan_csv_file_path, "DATABASE/Citrix/BC Assessment/2025/Feb 2025/BCGW_02001F02_1738965481026_18532.zip")
+
+# List contents of the main ZIP file
+main_contents <- archive(main_zip_path)
+
+# list all zip files that we need to load
+selected_files <- main_contents[grepl(paste(csv_path_key_list, collapse = "|"), main_contents$path) , ]
+selected_files %>% print()
+# nested_zip_path = selected_files$path[1]
+# create a list of lists to store the csv file information
+
+get_csv_file_name <- function(main_zip_path,nested_zip_path) {
+  # Open connection to the nested ZIP file within the main archive
+  nested_zip_con <- archive_read(main_zip_path, nested_zip_path)
+  # on.exit(close(nested_zip_con), add = TRUE)
+  # List contents of the nested ZIP file
+  nested_contents <- archive(nested_zip_con)
+  # Identify the CSV files within the nested ZIP
+  csv_files <- nested_contents[grepl("\\.csv$", nested_contents$path), ]
+  return(csv_files$path)
+}
+
+
+# Read the desired CSV files into a list of data frames
+
+# Function to read a CSV file from a nested ZIP within the main archive
+read_csv_from_nested_zip <- function(main_zip, nested_zip_path, csv_filename) {
+  # Open connection to the nested ZIP file within the main archive
+  nested_zip_con <- archive_read(main_zip, nested_zip_path)
+  # on.exit(close(nested_zip_con), add = TRUE)
+  # Read the specific CSV file from the nested ZIP
+  csv_con <- archive_read(nested_zip_con, csv_filename)
+  # on.exit(close(csv_con), add = TRUE)
+  # Read the CSV data into a data frame
+  csv_data <- read_csv(csv_con)
+  return(csv_data)
+}
+
+
+
+
+# loop through the selected_files and load them to mssql
+for (i in 5:nrow(selected_files)) {
+
+    nested_zip_path = selected_files %>% slice(i) %>%
+    pull(path)
+
+  nested_zip_name = nested_zip_path %>%
+    basename()
+
+  log_info(sprintf("Start processing zip file '%s'.", nested_zip_name))
+  csv_files_path <- get_csv_file_name(main_zip_path, nested_zip_path)
+
+  log_info(sprintf("Get table name from '%s'.", nested_zip_name))
+  csv_data = read_csv_from_nested_zip(main_zip_path, nested_zip_path, csv_files_path)
+
+  log_info(sprintf("Read table from '%s'.", nested_zip_name))
+
+  # Remove the file extension
+  table_name <- file_path_sans_ext(nested_zip_name)
+
+
+  log_info(sprintf("Start processing table '%s'.", table_name))
+
+  # Connect to DuckDB (in-memory)
+  duckdb_conn <- dbConnect(duckdb::duckdb(), dbdir = ":memory:")
+
+  log_info(sprintf("Reading CSV table '%s' into DuckDB.", table_name))
+
+  # Load the data from R into DuckDB
+  dbWriteTable(duckdb_conn, table_name, csv_data, overwrite = TRUE)
+
+  # Fetch total row count from DuckDB
+  total_rows <- get_total_row_count(duckdb_conn, table_name)
+
+  # Check if the table exists in MS SQL Server and drop it if necessary
+  check_and_drop_table(mssql_conn, table_name, target_schema)
+
+  # Verify column types in DuckDB and log schema
+  verify_duckdb_schema(duckdb_conn, table_name)
+
+  log_info(sprintf("Started copying table '%s' to MS SQL Server.", table_name))
+
+  copy_data_duckdb_mssql_in_chunk(duckdb_conn, mssql_conn, table_name, target_schema, total_rows )
+
+  log_info(sprintf("Finished copying table '%s' to MS SQL Server.", table_name))
+
+  dbDisconnect(duckdb_conn, shutdown = T)
+
+}
+
+
 # Disconnect MS SQL Server
-dbDisconnect(decimal_conn)
+dbDisconnect(decimal_conn, shutdown = T)
