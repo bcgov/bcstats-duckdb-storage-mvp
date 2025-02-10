@@ -483,10 +483,10 @@ copy_duckdb_r_data_to_mssql <- function(csv_table,
   log_info(sprintf("Reading CSV table '%s' into DuckDB.", csv_table))
 
   # Load the data from R into DuckDB
-  # dbWriteTable(duckdb_conn, table_name, csv_table, overwrite = TRUE)
+  dbWriteTable(duckdb_conn, table_name, csv_table, overwrite = TRUE)
   # or only register table in duckdb
   # Assuming 'df' is your data frame and 'virtual_table_name' is your desired table name in DuckDB
-  duckdb_register(duckdb_conn, table_name, csv_table)
+  # duckdb_register(duckdb_conn, table_name, csv_table)
   #   Considerations:
   #
   #     Performance: Copying the data into DuckDB (dbWriteTable()) can lead to faster query performance, especially for large datasets, since the data is stored in DuckDB's optimized format.

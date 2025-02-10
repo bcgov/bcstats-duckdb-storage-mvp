@@ -1,33 +1,64 @@
 ---
-title: "health_client_files_load_mssql"
+title: "Health Client Roster ETL with R, DuckDB, and SQL Server"
 format: docx
 editor: visual
 ---
 
-# README: Health Client Roster ETL with R, DuckDB, and SQL Server
-
 ## 1. Overview
+
 These scripts demonstrate a process for:
+
 1. **Loading** a set of CSV files containing BC Health client roster data using **DuckDB** (via `copy_duckdb_csv_to_mssql`) into a **SQL Server** database.
 2. **Performing ETL** (Extract, Transform, Load) tasks, including:
    - Adding or updating missing columns (e.g. `EFF_DATE`, `END_DATE`).
    - Combining data from multiple monthly tables into a **single view** (`VIEW_COMBINED_HEALTH_CLIENT`).
    - Creating and rebuilding **indexes** to speed up queries.
    - Compressing tables (PAGE or ROW compression) to reduce storage.
-3. **Address history aggregation** at the STUDY_ID level, identifying unique address changes and storing them into a fact table (`FCT_HEALTH_CLIENT_ADDRESS_HISTORY`).
+3. **Address history aggregation** at the STUDY\_ID level, identifying unique address changes and storing them into a fact table (`FCT_HEALTH_CLIENT_ADDRESS_HISTORY`).
 
 These steps ensure that monthly health client data is systematically processed, indexed, and aggregated for more efficient queries.
 
+These scripts are stored in [https://github.com/bcgov/bcstats-duckdb-storage-mvp/blob/duckdb\_to\_msssql/mssql\_etl/](https://github.com/bcgov/bcstats-duckdb-storage-mvp/blob/duckdb_to_msssql/mssql_etl/)
+
 ## 2. File Descriptions
+
 **1. CSV Loading Script**: Reads a list of CSV files and their corresponding SQL table names from a metadata table (`clr_ext_csv_files_list_with_sql_names.csv`). Each file is imported into the `dev` schema in SQL Server, applying the correct column types and handling older data with fewer columns differently.
 
+This script is stored in [https://github.com/bcgov/bcstats-duckdb-storage-mvp/blob/duckdb\_to\_msssql/mssql\_etl/Scripts/00\_csv\_to\_mssql.R](https://github.com/bcgov/bcstats-duckdb-storage-mvp/blob/duckdb_to_msssql/mssql_etl/Scripts/00_csv_to_mssql.R)
+
+### a. The `copy_duckdb_csv_to_mssql` Function
+
+> A key helper function powering the CSV loading process is `copy_duckdb_csv_to_mssql`. It:
+>
+> - **Leverages DuckDB and Arrow** to rapidly read CSV files, even with large datasets. DuckDB’s native CSV reader is efficient, and Arrow integration helps handle data conversions.
+> - **Creates an in-memory DuckDB instance** to ingest CSV files, applying optional schema or column-type specifications.
+> - **Examines** whether the target SQL Server table already exists. If so, the script can drop and recreate it to ensure a clean load.
+> - **Writes data in batches** to the remote SQL Server (via ODBC) to mitigate issues with unstable or slow network connections.
+>   - This is critical for large CSVs or network constraints—batch loading avoids sending the entire dataset in one transaction.
+> - **Logs** progress to inform you how many rows have been transferred and to track where things might fail.
+>
+> Below is a simplified overview of the function’s flow:
+>
+> 1. **DuckDB Connection**: Spin up DuckDB in-memory.
+> 2. **CSV Read**: Use `duckdb_read_csv` or a custom schema to load the CSV.
+> 3. **Check/Drop Table**: If the table exists in SQL Server, optionally drop.
+> 4. **Batch Insert**: Copy data from DuckDB to SQL Server in chunks.
+> 5. **Close** connections.
+>
+> Because reading and writing data can be CPU- or network-intensive, this function provides a robust, fault-tolerant way to populate the SQL Server database with monthly health client roster data.
+>
+> This function and other utility functions are stored in: [https://github.com/bcgov/bcstats-duckdb-storage-mvp/blob/duckdb\_to\_msssql/mssql\_etl/Scripts/functions.R](https://github.com/bcgov/bcstats-duckdb-storage-mvp/blob/duckdb_to_msssql/mssql_etl/Scripts/functions.R)
+
 **2. ETL and Aggregation Script**: Contains logic to:
+
 - Alter existing monthly tables to ensure consistent columns (e.g., `CHSA`, `LATITUDE`, `LONGITUDE`, `EFF_DATE`, `END_DATE`).
 - Create or update indexes (for example on `STUDY_ID`) to improve performance.
 - Generate a union of all monthly tables via `CREATE VIEW dev.VIEW_COMBINED_HEALTH_CLIENT`.
 - Provide a method to compute and store unique address histories for each `STUDY_ID` into a new table (`FCT_HEALTH_CLIENT_ADDRESS_HISTORY`).
+- This script is stored in [https://github.com/bcgov/bcstats-duckdb-storage-mvp/blob/duckdb\_to\_msssql/mssql\_etl/Scripts/01\_generate\_sql\_query\_for\_healthclientfile\_in\_R.R](https://github.com/bcgov/bcstats-duckdb-storage-mvp/blob/duckdb_to_msssql/mssql_etl/Scripts/01_generate_sql_query_for_healthclientfile_in_R.R)
 
 ## 3. Required Setup
+
 1. **Config File**: The scripts read from a `config::get(...)` calls. This implies a config file (e.g., `config.yml`) with entries like:
    ```yml
    decimal:
@@ -48,7 +79,9 @@ These steps ensure that monthly health client data is systematically processed, 
 3. **Database Access**: You need appropriate permissions to create and alter tables in the target `dev` schema on the SQL Server instance.
 
 ## 4. Step-by-Step Usage
+
 ### Step A: CSV to SQL
+
 1. **Update the CSV list** in `clr_ext_csv_files_list_with_sql_names.csv`, ensuring the following fields are correct:
    - `file_name`: The CSV filename.
    - `subfolder_path`: The relative or absolute path to that file.
@@ -59,10 +92,11 @@ These steps ensure that monthly health client data is systematically processed, 
    - Confirm the `decimal` config for DB connections.
 3. **Run** the CSV loading script. It will:
    - Read each CSV file.
-   - Create or update the corresponding table in the `dev` schema.
+   - Create or update the corresponding table in the `dev` schema (using `copy_duckdb_csv_to_mssql`).
    - Write logs to `log_file_path`.
 
 ### Step B: ETL, Indexing, and View Creation
+
 1. **Connect to the same SQL Server**.
 2. **Alter Tables**:
    - Add missing columns (`CHSA`, `LATITUDE`, `LONGITUDE`, `EFF_DATE`, `END_DATE`, etc.) based on the date implied in the table name.
@@ -75,9 +109,10 @@ These steps ensure that monthly health client data is systematically processed, 
 5. **Optionally** compress each table using PAGE or ROW compression to save storage.
 
 ### Step C: Address History Aggregation
+
 1. **Overview**:
    - The script processes each `STUDY_ID` from `dev.DIM_HEALTH_CLIENT_ID` in batches or one by one.
-   - For each STUDY_ID, we gather all monthly address records from `VIEW_COMBINED_HEALTH_CLIENT`.
+   - For each STUDY\_ID, we gather all monthly address records from `VIEW_COMBINED_HEALTH_CLIENT`.
    - We remove duplicates based on postal code and the first two words of `STREET_LINE`.
    - We then insert the simplified results into `dev.FCT_HEALTH_CLIENT_ADDRESS_HISTORY`.
 2. **Details**:
@@ -90,6 +125,7 @@ These steps ensure that monthly health client data is systematically processed, 
    - We maintain a `Status` in `dev.DIM_HEALTH_CLIENT_ID` to mark whether a `STUDY_ID` is pending, processing, or processed.
 
 ## 5. How To Replicate or Improve
+
 1. **Prerequisite**:
    - A working ODBC or DSN for the SQL Server.
    - Local or shared drive access for CSV files.
@@ -106,6 +142,7 @@ These steps ensure that monthly health client data is systematically processed, 
    - Explore parallel processing or chunked loading for large data volumes to improve performance.
 
 ## 6. Troubleshooting
+
 1. **Encoding Issues**:
    - If you encounter errors reading CSV files (especially older files), convert them to UTF-8 prior to loading.
    - Example: `iconv -f ISO-8859-2 -t UTF-8 input.csv > output_utf8.csv`.
@@ -121,13 +158,17 @@ These steps ensure that monthly health client data is systematically processed, 
    - For columns like `EFF_DATE` or `END_DATE`, confirm that all monthly tables have consistent data types.
 
 ## 7. Conclusion
+
 By following these steps, colleagues can replicate the end-to-end process:
+
 - **Load** monthly CSV files into SQL Server.
 - **Augment** columns and indexes.
 - **Union** data into a comprehensive view.
-- **Aggregate** addresses at the STUDY_ID level.
+- **Aggregate** addresses at the STUDY\_ID level.
 
 This pipeline may be adapted for new data sources or additional transformations, and the indexing strategy should evolve as data grows.
 
 **Contact** the Data Engineering or Data Science team if you have further questions about schema changes, performance tuning, or if you plan to extend these scripts significantly.
+
+
 
