@@ -342,29 +342,6 @@ specify_type_for_read_csv <- function(file, numeric_columns = character(0), patt
 
 }
 
-# Function to read a CSV file with custom column types
-
-# read_csv_with_types <- function(file, numeric_columns = character(0), pattern = "Value|Price") {
-#   # Read header only to get column names
-#   header <- read_csv(file, n_max = 0)
-#   col_names <- names(header)
-#
-#   # Build a list of column types:
-#   col_types_list <- map(col_names, function(col) {
-#     if (col %in% numeric_columns || grepl(pattern, col, ignore.case = TRUE)) {
-#       col_double()  # set as numeric
-#     } else {
-#       col_character()  # default to character
-#     }
-#   })
-#   names(col_types_list) <- col_names
-#
-#   # Create a col_types specification with cols()
-#   col_spec <- do.call(cols, col_types_list)
-#
-#   # Read the CSV using the custom col_types specification
-#   read_csv(file, col_types = col_spec)
-# }
 
 # get the csv connection from three levels of path
 
@@ -406,16 +383,22 @@ convert_column_types <- function(df, numeric_columns = character(0), pattern = "
   df
 }
 
-
-create_custom_table <- function(conn, table_name, target_schema, df, numeric_columns = character(0)) {
+specify_type_for_mssql_table <- function(df, numeric_columns = character(0), pattern = "Value|Price") {
   # Build column definitions dynamically from the dataframe's column names.
   column_defs <- sapply(names(df), function(col) {
-    if (col %in% numeric_columns || grepl("Value|Price|VALUE|PRICE", col, ignore.case = TRUE)) {
+    if (col %in% numeric_columns || grepl(pattern, col, ignore.case = TRUE)) {
       sprintf("[%s] NUMERIC(18,2)", col)
     } else {
       sprintf("[%s] VARCHAR(255)", col)
     }
   })
+
+  return(column_defs)
+}
+
+
+create_custom_table <- function(conn, table_name, target_schema, df, column_defs) {
+
 
   # Construct the CREATE TABLE SQL command.
   create_sql <- sprintf(
@@ -424,6 +407,7 @@ create_custom_table <- function(conn, table_name, target_schema, df, numeric_col
   )
 
   dbExecute(conn, create_sql)
+  log_info(sprintf("Table '%s.%s' created in MS SQL Server.", target_schema, table_name))
 }
 
 

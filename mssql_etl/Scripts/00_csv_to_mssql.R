@@ -245,7 +245,7 @@ for (i in 1:nrow(selected_files)) {
   # Open connection to the nested ZIP file within the main archive
   csv_conn_for_type <- get_csv_conn(main_zip_path, nested_zip_path, csv_files_path)
   # Specify column types for the CSV file
-  col_spec <- specify_type_for_read_csv(csv_conn_for_type,
+  csv_col_spec <- specify_type_for_read_csv(csv_conn_for_type,
                                         numeric_columns = character(0),
                                         pattern = "Value|Price|VALUE|PRICE|COUNT")
   # Read the CSV using the custom col_types specification
@@ -254,7 +254,7 @@ for (i in 1:nrow(selected_files)) {
   log_info(sprintf("Read table from '%s'.", csv_files_path))
 
   csv_conn_for_reader <- get_csv_conn(main_zip_path, nested_zip_path, csv_files_path)
-  csv_data <- read_csv(csv_conn_for_reader, col_types = col_spec)
+  csv_data <- read_csv(csv_conn_for_reader, col_types = csv_col_spec)
   # Convert columns: force specific columns to numeric
   # numeric_cols <- c("Price", "Value")  # your explicit numeric columns
   # csv_data <- convert_column_types(csv_data, numeric_columns = numeric_cols)
@@ -263,6 +263,17 @@ for (i in 1:nrow(selected_files)) {
   log_info(sprintf("Get table name from '%s'.", csv_files_path))
   table_name <- file_path_sans_ext(nested_zip_name)
   log_info(sprintf("Start processing table '%s'.", table_name))
+
+  # Check if the table exists in MS SQL Server and drop it if necessary
+  check_and_drop_table(mssql_conn, table_name, target_schema)
+
+  # create column defintions for MSSQL server tables
+  sql_col_spec <- specify_type_for_mssql_table(csv_data,
+                                               numeric_columns = character(0),
+                                               pattern = "Value|Price|VALUE|PRICE|COUNT")
+
+  # Create table with the custom schema.
+  create_custom_table(mssql_conn, table_name, target_schema, csv_data, sql_col_spec)
 
   # Connect to DuckDB (in-memory)
   duckdb_conn <- dbConnect(duckdb::duckdb(), dbdir = ":memory:")
@@ -279,11 +290,6 @@ for (i in 1:nrow(selected_files)) {
   # Verify column types in DuckDB and log schema
   verify_duckdb_schema(duckdb_conn, table_name)
 
-  # Check if the table exists in MS SQL Server and drop it if necessary
-  check_and_drop_table(mssql_conn, table_name, target_schema)
-
-  # Create table with the custom schema.
-  create_custom_table(mssql_conn, table_name, target_schema, csv_data)
 
   log_info(sprintf("Started copying table '%s' to MS SQL Server.", table_name))
 
