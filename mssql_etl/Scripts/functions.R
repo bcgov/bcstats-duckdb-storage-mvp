@@ -181,11 +181,17 @@ copy_csv_to_mssql <- function(csv_path, mssql_conn, table_name, target_schema = 
 
 
 
-log_info <- function(msg, log_file = file_logger, print_flag = T) {
-  if (print_flag) cat(sprintf("[%s] %s\n", Sys.time(), msg))  # Simple logging
+log_info <- function(msg, log_file = file_logger, print_flag = TRUE, in_place = FALSE) {
+  if (print_flag) {
+    if (in_place) {
+      # No timestamp and no newline for in-place updates.
+      cat(sprintf("%s", msg))
+    } else {
+      cat(sprintf("[%s] %s\n", Sys.time(), msg))
+    }
+  }
   info(log_file, msg)
 }
-
 
 
 
@@ -283,20 +289,16 @@ verify_duckdb_schema <- function(duckdb_conn, table_name) {
 
 
 update_progress_bar <- function(total_rows_copied, total_rows, progress_bar, last_logged_percentage, step = 5) {
-  # Calculate percentage completed
   percentage_completed <- floor((total_rows_copied / total_rows) * 100)
-
-  # If `step`% or more progress has been made, update the progress bar
   if (percentage_completed >= last_logged_percentage + step) {
     new_progress <- strrep("-", (percentage_completed - last_logged_percentage) / step)
     progress_bar <- paste0(progress_bar, new_progress)
-
-    # Print updated progress bar and percentage
-    log_info(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, percentage_completed, total_rows_copied, total_rows))
-    flush.console()  # Ensure immediate printing to console
+    # log_info(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, percentage_completed, total_rows_copied, total_rows),
+    #          in_place = TRUE)
+    cat(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, percentage_completed, total_rows_copied, total_rows))
+    flush.console()
   }
-
-  return(list(progress_bar = progress_bar, last_logged_percentage = percentage_completed))
+  list(progress_bar = progress_bar, last_logged_percentage = percentage_completed)
 }
 
 
@@ -319,27 +321,27 @@ get_csv_file_name <- function(main_zip_path,nested_zip_path) {
 library(readr)
 library(purrr)
 
-read_csv_with_types <- function(file, numeric_columns = character(0), pattern = "Value|Price") {
-  # Read header only to get column names
-  header <- read_csv(file, n_max = 0)
-  col_names <- names(header)
-
-  # Build a list of column types:
-  col_types_list <- map(col_names, function(col) {
-    if (col %in% numeric_columns || grepl(pattern, col, ignore.case = TRUE)) {
-      col_double()  # set as numeric
-    } else {
-      col_character()  # default to character
-    }
-  })
-  names(col_types_list) <- col_names
-
-  # Create a col_types specification with cols()
-  col_spec <- do.call(cols, col_types_list)
-
-  # Read the CSV using the custom col_types specification
-  read_csv(file, col_types = col_spec)
-}
+# read_csv_with_types <- function(file, numeric_columns = character(0), pattern = "Value|Price") {
+#   # Read header only to get column names
+#   header <- read_csv(file, n_max = 0)
+#   col_names <- names(header)
+#
+#   # Build a list of column types:
+#   col_types_list <- map(col_names, function(col) {
+#     if (col %in% numeric_columns || grepl(pattern, col, ignore.case = TRUE)) {
+#       col_double()  # set as numeric
+#     } else {
+#       col_character()  # default to character
+#     }
+#   })
+#   names(col_types_list) <- col_names
+#
+#   # Create a col_types specification with cols()
+#   col_spec <- do.call(cols, col_types_list)
+#
+#   # Read the CSV using the custom col_types specification
+#   read_csv(file, col_types = col_spec)
+# }
 
 # Read the desired CSV files into a list of data frames
 
@@ -353,15 +355,28 @@ read_csv_from_nested_zip <- function(main_zip, nested_zip_path, csv_filename) {
   # on.exit(close(csv_con), add = TRUE)
   # Read the CSV data into a data frame
   csv_data <- read_csv(csv_con)
+  # close(csv_con)
+  # close(nested_zip_con)
   return(csv_data)
 }
 
+# Function to convert column types in a data frame
+convert_column_types <- function(df, numeric_columns = character(0), pattern = "Value|Price|VALUE|PRICE|COUNT") {
+  for (col in names(df)) {
+    if (col %in% numeric_columns || grepl(pattern, col, ignore.case = TRUE)) {
+      df[[col]] <- as.numeric(df[[col]])
+    } else {
+      df[[col]] <- as.character(df[[col]])
+    }
+  }
+  df
+}
 
 
 create_custom_table <- function(conn, table_name, target_schema, df, numeric_columns = character(0)) {
   # Build column definitions dynamically from the dataframe's column names.
   column_defs <- sapply(names(df), function(col) {
-    if (col %in% numeric_columns || grepl("Value|Price|VALUE|PRICE|COUNT", col, ignore.case = TRUE)) {
+    if (col %in% numeric_columns || grepl("Value|Price|VALUE|PRICE", col, ignore.case = TRUE)) {
       sprintf("[%s] NUMERIC(18,2)", col)
     } else {
       sprintf("[%s] VARCHAR(255)", col)

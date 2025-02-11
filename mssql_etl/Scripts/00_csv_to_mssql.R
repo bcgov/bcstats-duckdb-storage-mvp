@@ -227,7 +227,7 @@ selected_files %>% print()
 source("./mssql_etl/Scripts/functions.r")
 target_schema = "dev"
 mssql_conn = decimal_conn
-i = 1
+# i = 1
 # loop through the selected_files and load them to mssql
 for (i in 2:nrow(selected_files)) {
 
@@ -242,6 +242,10 @@ for (i in 2:nrow(selected_files)) {
 
   log_info(sprintf("Get table name from '%s'.", nested_zip_name))
   csv_data = read_csv_from_nested_zip(main_zip_path, nested_zip_path, csv_files_path)
+
+  # Convert columns: force specific columns to numeric
+  numeric_cols <- c("Price", "Value")  # your explicit numeric columns
+  csv_data <- convert_column_types(csv_data, numeric_columns = numeric_cols)
 
   log_info(sprintf("Read table from '%s'.", nested_zip_name))
 
