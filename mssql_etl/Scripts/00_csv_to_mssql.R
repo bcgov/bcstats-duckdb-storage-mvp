@@ -227,32 +227,41 @@ selected_files %>% print()
 source("./mssql_etl/Scripts/functions.r")
 target_schema = "dev"
 mssql_conn = decimal_conn
-# i = 1
+i = 1
 # loop through the selected_files and load them to mssql
-for (i in 2:nrow(selected_files)) {
+for (i in 1:nrow(selected_files)) {
 
-    nested_zip_path = selected_files %>% slice(i) %>%
-    pull(path)
+  nested_zip_path = selected_files %>% slice(i) %>%
+  pull(path)
 
   nested_zip_name = nested_zip_path %>%
     basename()
 
   log_info(sprintf("Start processing zip file '%s'.", nested_zip_name))
-  csv_files_path <- get_csv_file_name(main_zip_path, nested_zip_path)
+  # now only on csv file in one zip file, it is simple. TODO: genelized to multiple csv files in one zip file
+  csv_files_path <- get_csv_file_path(main_zip_path, nested_zip_path)
 
-  log_info(sprintf("Get table name from '%s'.", nested_zip_name))
-  csv_data = read_csv_from_nested_zip(main_zip_path, nested_zip_path, csv_files_path)
 
+  # Open connection to the nested ZIP file within the main archive
+  csv_conn_for_type <- get_csv_conn(main_zip_path, nested_zip_path, csv_files_path)
+  # Specify column types for the CSV file
+  col_spec <- specify_type_for_read_csv(csv_conn_for_type,
+                                        numeric_columns = character(0),
+                                        pattern = "Value|Price|VALUE|PRICE|COUNT")
+  # Read the CSV using the custom col_types specification
+
+
+  log_info(sprintf("Read table from '%s'.", csv_files_path))
+
+  csv_conn_for_reader <- get_csv_conn(main_zip_path, nested_zip_path, csv_files_path)
+  csv_data <- read_csv(csv_conn_for_reader, col_types = col_spec)
   # Convert columns: force specific columns to numeric
-  numeric_cols <- c("Price", "Value")  # your explicit numeric columns
-  csv_data <- convert_column_types(csv_data, numeric_columns = numeric_cols)
+  # numeric_cols <- c("Price", "Value")  # your explicit numeric columns
+  # csv_data <- convert_column_types(csv_data, numeric_columns = numeric_cols)
 
-  log_info(sprintf("Read table from '%s'.", nested_zip_name))
-
-  # Remove the file extension
+  # Remove the file extension from the table name
+  log_info(sprintf("Get table name from '%s'.", csv_files_path))
   table_name <- file_path_sans_ext(nested_zip_name)
-
-
   log_info(sprintf("Start processing table '%s'.", table_name))
 
   # Connect to DuckDB (in-memory)
@@ -263,18 +272,18 @@ for (i in 2:nrow(selected_files)) {
   # Load the data from R into DuckDB
   dbWriteTable(duckdb_conn, table_name, csv_data, overwrite = TRUE)
   # arrow_csv_data <- arrow::arrow_table(csv_data)
-  # arrow::to_duckdb(arrow_csv_data, table_name , con = duckdb_conn)
+  # arrow::to_duckdb(arrow_csv_data, table_name , con = duckdb_conn) #? only work one operation, not sure why.
   # Fetch total row count from DuckDB
   total_rows <- get_total_row_count(duckdb_conn, table_name)
+
+  # Verify column types in DuckDB and log schema
+  verify_duckdb_schema(duckdb_conn, table_name)
 
   # Check if the table exists in MS SQL Server and drop it if necessary
   check_and_drop_table(mssql_conn, table_name, target_schema)
 
   # Create table with the custom schema.
   create_custom_table(mssql_conn, table_name, target_schema, csv_data)
-
-  # Verify column types in DuckDB and log schema
-  verify_duckdb_schema(duckdb_conn, table_name)
 
   log_info(sprintf("Started copying table '%s' to MS SQL Server.", table_name))
 

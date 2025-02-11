@@ -304,7 +304,7 @@ update_progress_bar <- function(total_rows_copied, total_rows, progress_bar, las
 
 # create a list of lists to store the csv file information
 
-get_csv_file_name <- function(main_zip_path,nested_zip_path) {
+get_csv_file_path <- function(main_zip_path,nested_zip_path) {
   # Open connection to the nested ZIP file within the main archive
   nested_zip_con <- archive_read(main_zip_path, nested_zip_path)
   # on.exit(close(nested_zip_con), add = TRUE)
@@ -320,6 +320,29 @@ get_csv_file_name <- function(main_zip_path,nested_zip_path) {
 
 library(readr)
 library(purrr)
+
+
+specify_type_for_read_csv <- function(file, numeric_columns = character(0), pattern = "Value|Price") {
+  # Read header only to get column names
+  header <- read_csv(file, n_max = 0)
+  col_names <- names(header)
+
+  # Build a list of column types:
+  col_types_list <- map(col_names, function(col) {
+    if (col %in% numeric_columns || grepl(pattern, col, ignore.case = TRUE)) {
+      col_double()  # set as numeric
+    } else {
+      col_character()  # default to character
+    }
+  })
+  names(col_types_list) <- col_names
+
+  # Create a col_types specification with cols()
+  col_spec <- do.call(cols, col_types_list)
+
+}
+
+# Function to read a CSV file with custom column types
 
 # read_csv_with_types <- function(file, numeric_columns = character(0), pattern = "Value|Price") {
 #   # Read header only to get column names
@@ -343,20 +366,31 @@ library(purrr)
 #   read_csv(file, col_types = col_spec)
 # }
 
-# Read the desired CSV files into a list of data frames
+# get the csv connection from three levels of path
 
-# Function to read a CSV file from a nested ZIP within the main archive
-read_csv_from_nested_zip <- function(main_zip, nested_zip_path, csv_filename) {
+get_csv_conn <- function(main_zip_path, nested_zip_path, csv_files_path) {
   # Open connection to the nested ZIP file within the main archive
-  nested_zip_con <- archive_read(main_zip, nested_zip_path)
+  nested_zip_con <- archive_read(main_zip_path, nested_zip_path)
   # on.exit(close(nested_zip_con), add = TRUE)
   # Read the specific CSV file from the nested ZIP
-  csv_con <- archive_read(nested_zip_con, csv_filename)
+  csv_con <- archive_read(nested_zip_con, csv_files_path)
   # on.exit(close(csv_con), add = TRUE)
-  # Read the CSV data into a data frame
-  csv_data <- read_csv(csv_con)
-  # close(csv_con)
-  # close(nested_zip_con)
+  return(csv_con)
+}
+
+
+# Function to read a CSV file from a nested ZIP within the main archive
+read_csv_from_nested_zip <- function(main_zip_path, nested_zip_path, csv_files_path) {
+  # Open connection to the nested ZIP file within the main archive
+  csv_conn_for_type <- get_csv_conn(main_zip_path, nested_zip_path, csv_files_path)
+  # Specify column types for the CSV file
+  col_spec <- specify_type_for_read_csv(csv_conn_for_type,
+                                        numeric_columns = character(0),
+                                        pattern = "Value|Price")
+
+  # Read the CSV using the custom col_types specification
+  csv_conn_for_reader <- get_csv_conn(main_zip_path, nested_zip_path, csv_files_path)
+  csv_data <- read_csv(csv_conn_for_reader, col_types = col_spec)
   return(csv_data)
 }
 
