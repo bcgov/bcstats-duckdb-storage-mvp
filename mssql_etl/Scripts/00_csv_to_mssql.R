@@ -209,7 +209,7 @@ library(readr)
 # Load the tools package
 library(tools)
 # Create a vector containing the keywords you want to match in the CSV filenames:
-csv_path_key_list <- c("address", "description", "sales", "value")
+csv_path_key_list <- c("addresses", "descriptions", "sales", "gnrl_property_values")
 csv_path_key_list <- paste0("bca_folio_", csv_path_key_list)
 
 # Path to the main ZIP file
@@ -223,40 +223,13 @@ main_contents <- archive(main_zip_path)
 selected_files <- main_contents[grepl(paste(csv_path_key_list, collapse = "|"), main_contents$path) , ]
 selected_files %>% print()
 # nested_zip_path = selected_files$path[1]
-# create a list of lists to store the csv file information
 
-get_csv_file_name <- function(main_zip_path,nested_zip_path) {
-  # Open connection to the nested ZIP file within the main archive
-  nested_zip_con <- archive_read(main_zip_path, nested_zip_path)
-  # on.exit(close(nested_zip_con), add = TRUE)
-  # List contents of the nested ZIP file
-  nested_contents <- archive(nested_zip_con)
-  # Identify the CSV files within the nested ZIP
-  csv_files <- nested_contents[grepl("\\.csv$", nested_contents$path), ]
-  return(csv_files$path)
-}
-
-
-# Read the desired CSV files into a list of data frames
-
-# Function to read a CSV file from a nested ZIP within the main archive
-read_csv_from_nested_zip <- function(main_zip, nested_zip_path, csv_filename) {
-  # Open connection to the nested ZIP file within the main archive
-  nested_zip_con <- archive_read(main_zip, nested_zip_path)
-  # on.exit(close(nested_zip_con), add = TRUE)
-  # Read the specific CSV file from the nested ZIP
-  csv_con <- archive_read(nested_zip_con, csv_filename)
-  # on.exit(close(csv_con), add = TRUE)
-  # Read the CSV data into a data frame
-  csv_data <- read_csv(csv_con)
-  return(csv_data)
-}
-
-
-
-
+source("./mssql_etl/Scripts/functions.r")
+target_schema = "dev"
+mssql_conn = decimal_conn
+i = 1
 # loop through the selected_files and load them to mssql
-for (i in 5:nrow(selected_files)) {
+for (i in 2:nrow(selected_files)) {
 
     nested_zip_path = selected_files %>% slice(i) %>%
     pull(path)
@@ -285,12 +258,16 @@ for (i in 5:nrow(selected_files)) {
 
   # Load the data from R into DuckDB
   dbWriteTable(duckdb_conn, table_name, csv_data, overwrite = TRUE)
-
+  # arrow_csv_data <- arrow::arrow_table(csv_data)
+  # arrow::to_duckdb(arrow_csv_data, table_name , con = duckdb_conn)
   # Fetch total row count from DuckDB
   total_rows <- get_total_row_count(duckdb_conn, table_name)
 
   # Check if the table exists in MS SQL Server and drop it if necessary
   check_and_drop_table(mssql_conn, table_name, target_schema)
+
+  # Create table with the custom schema.
+  create_custom_table(mssql_conn, table_name, target_schema, csv_data)
 
   # Verify column types in DuckDB and log schema
   verify_duckdb_schema(duckdb_conn, table_name)

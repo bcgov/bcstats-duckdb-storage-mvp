@@ -292,13 +292,90 @@ update_progress_bar <- function(total_rows_copied, total_rows, progress_bar, las
     progress_bar <- paste0(progress_bar, new_progress)
 
     # Print updated progress bar and percentage
-    # log_info(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, percentage_completed, total_rows_copied, total_rows))
-    # flush.console()  # Ensure immediate printing to console
+    log_info(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, percentage_completed, total_rows_copied, total_rows))
+    flush.console()  # Ensure immediate printing to console
   }
 
   return(list(progress_bar = progress_bar, last_logged_percentage = percentage_completed))
 }
 
+
+# create a list of lists to store the csv file information
+
+get_csv_file_name <- function(main_zip_path,nested_zip_path) {
+  # Open connection to the nested ZIP file within the main archive
+  nested_zip_con <- archive_read(main_zip_path, nested_zip_path)
+  # on.exit(close(nested_zip_con), add = TRUE)
+  # List contents of the nested ZIP file
+  nested_contents <- archive(nested_zip_con)
+  # Identify the CSV files within the nested ZIP
+  csv_files <- nested_contents[grepl("\\.csv$", nested_contents$path), ]
+  return(csv_files$path)
+}
+
+
+
+
+library(readr)
+library(purrr)
+
+read_csv_with_types <- function(file, numeric_columns = character(0), pattern = "Value|Price") {
+  # Read header only to get column names
+  header <- read_csv(file, n_max = 0)
+  col_names <- names(header)
+
+  # Build a list of column types:
+  col_types_list <- map(col_names, function(col) {
+    if (col %in% numeric_columns || grepl(pattern, col, ignore.case = TRUE)) {
+      col_double()  # set as numeric
+    } else {
+      col_character()  # default to character
+    }
+  })
+  names(col_types_list) <- col_names
+
+  # Create a col_types specification with cols()
+  col_spec <- do.call(cols, col_types_list)
+
+  # Read the CSV using the custom col_types specification
+  read_csv(file, col_types = col_spec)
+}
+
+# Read the desired CSV files into a list of data frames
+
+# Function to read a CSV file from a nested ZIP within the main archive
+read_csv_from_nested_zip <- function(main_zip, nested_zip_path, csv_filename) {
+  # Open connection to the nested ZIP file within the main archive
+  nested_zip_con <- archive_read(main_zip, nested_zip_path)
+  # on.exit(close(nested_zip_con), add = TRUE)
+  # Read the specific CSV file from the nested ZIP
+  csv_con <- archive_read(nested_zip_con, csv_filename)
+  # on.exit(close(csv_con), add = TRUE)
+  # Read the CSV data into a data frame
+  csv_data <- read_csv(csv_con)
+  return(csv_data)
+}
+
+
+
+create_custom_table <- function(conn, table_name, target_schema, df, numeric_columns = character(0)) {
+  # Build column definitions dynamically from the dataframe's column names.
+  column_defs <- sapply(names(df), function(col) {
+    if (col %in% numeric_columns || grepl("Value|Price|VALUE|PRICE|COUNT", col, ignore.case = TRUE)) {
+      sprintf("[%s] NUMERIC(18,2)", col)
+    } else {
+      sprintf("[%s] VARCHAR(255)", col)
+    }
+  })
+
+  # Construct the CREATE TABLE SQL command.
+  create_sql <- sprintf(
+    "CREATE TABLE [%s].[%s] (%s)",
+    target_schema, table_name, paste(column_defs, collapse = ", ")
+  )
+
+  dbExecute(conn, create_sql)
+}
 
 
 # all the funcitons in csv to mssql already implemented in R dbi functions, so we can refactor them by replacing our functions with dbi functions.
@@ -330,7 +407,7 @@ copy_data_duckdb_mssql_in_chunk <- function(duckdb_conn, mssql_conn, table_name,
       conn = mssql_conn,
       name = DBI::Id(schema = target_schema, table = table_name),  # Target schema and table name
       value = arrow_chunk ,
-      append = total_rows_copied > 0 # Append after the first batch
+      append = TRUE # Append after the first batch
     )
 
     # Update total rows copied
@@ -342,8 +419,8 @@ copy_data_duckdb_mssql_in_chunk <- function(duckdb_conn, mssql_conn, table_name,
     last_logged_percentage <- progress_info$last_logged_percentage
 
     # Print updated progress bar and percentage
-    log_info(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, percentage_completed, total_rows_copied, total_rows))
-    flush.console()  # Ensure immediate printing to console
+    # log_info(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, last_logged_percentage, total_rows_copied, total_rows))
+    # flush.console()  # Ensure immediate printing to console
 
     # Exit loop if all rows are copied
     if (total_rows_copied>= total_rows) break
@@ -484,8 +561,13 @@ copy_duckdb_r_data_to_mssql <- function(csv_table,
 
   # Load the data from R into DuckDB
   dbWriteTable(duckdb_conn, table_name, csv_table, overwrite = TRUE)
-  # or only register table in duckdb
+  # or only register table in duckdb If you want to leverage DuckDB’s tight integration with Arrow, convert your R data frame explicitly to an Arrow table:
+  # arrow_csv_table <- arrow::arrow_table(csv_table)
+  # arrow::to_duckdb(arrow_csv_table, table_name , con = duckdb_conn)
+  # This conversion happens once and uses Arrow’s efficient C++ routines. In many cases this method is faster than having DuckDB internally convert an R data frame on registration.
+
   # Assuming 'df' is your data frame and 'virtual_table_name' is your desired table name in DuckDB
+  # this is super slow
   # duckdb_register(duckdb_conn, table_name, csv_table)
   #   Considerations:
   #
