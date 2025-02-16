@@ -126,15 +126,21 @@ health_csv_file_list = read_csv(
 
 csv_col_types_before_202308 = c(
                     STUDY_ID = "VARCHAR",
-                    BIRTH_YR_MON = "INTEGER",
+                    BIRTH_YR_MON = "VARCHAR",
                     SEX = "VARCHAR",
                     POSTAL_CODE = "VARCHAR",
                     CITY = "VARCHAR",
                     STREET_LINE = "VARCHAR",
                     LHA = "VARCHAR")
 
+# row names should be converted to a column
+csv_col_types_before_202308_df <- csv_col_types_before_202308 %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("COLUMN_NAME")  %>%
+  set_names(c("COLUMN_NAME", "COLUMN_TYPE"))
+
 csv_col_types = c(  STUDY_ID = "VARCHAR",
-                BIRTH_YR_MON = "INTEGER",
+                BIRTH_YR_MON = "VARCHAR",
                 SEX = "VARCHAR",
                 POSTAL_CODE = "VARCHAR",
                 CITY = "VARCHAR",
@@ -145,6 +151,56 @@ csv_col_types = c(  STUDY_ID = "VARCHAR",
                 LONGITUDE = "DOUBLE",
                 EFF_DATE = "DATE",
                 END_DATE = "DATE")
+
+csv_col_types_df <- csv_col_types %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("COLUMN_NAME")  %>%
+  set_names( c("COLUMN_NAME","COLUMN_TYPE"))
+
+health_csv_file_meta_data_df <- data.frame(
+  file_name = character(),
+  file_name_no_suffix = character(),
+  sql_table_name = character(),
+  relative_path = character(),
+  subfolder_path = character(),
+  file_size = character(),
+  file_loaded = logical(),
+  COLUMN_NAME = character(),
+  COLUMN_TYPE = character()
+)
+
+# create a meta file to record the status of the csv files with data type information
+for (i in 1:nrow(health_csv_file_list)) {
+  one_table = health_csv_file_list %>% slice(i)
+
+  sql_table_name = one_table %>%
+    pull(sql_table_name)
+  if ( sql_table_name == "CLR_EXT_20190527") {
+    # do nothing
+  } else if (i < 86) {
+    # file before 20230828
+    health_csv_file_meta_data_df = health_csv_file_meta_data_df %>%
+      bind_rows(one_table%>% tidyr::crossing(csv_col_types_before_202308_df))
+  }
+  else {
+    health_csv_file_meta_data_df = health_csv_file_meta_data_df %>%
+      bind_rows(one_table %>% tidyr::crossing(csv_col_types_df))
+  }
+
+}
+
+# save the meta file back to LAN
+
+health_csv_file_meta_data_df  %>%  write_csv(
+  file.path(
+    lan_csv_file_path,
+    "Population Estimates/Sub-Provincial (Annual)/01_Health Monthly Client Data/",
+    "clr_ext_csv_files_list_with_sql_names_meta.csv"
+  )
+)
+
+
+# read CSV to mssql
 
 for (i in 1:nrow(health_csv_file_list)) {
   one_table = health_csv_file_list %>% slice(i)
@@ -225,11 +281,84 @@ selected_files %>% print()
 # nested_zip_path = selected_files$path[1]
 
 source("./mssql_etl/Scripts/functions.r")
+
+
+# create a meta file to record the status of the csv files with data type information
+
+bca_csv_file_meta_data_df <- data.frame(
+  main_zip_path = character(),
+  nested_zip_path = character(),
+  csv_files_path = character(),
+  table_name = character(),
+  file_loaded = logical(),
+  COLUMN_NAME = character(),
+  COLUMN_TYPE = character()
+)
+
+for (i in 1:nrow(selected_files)) {
+
+  nested_zip_path = selected_files %>% slice(i) %>%
+    pull(path)
+
+  nested_zip_name = nested_zip_path %>%
+    basename()
+
+  log_info(sprintf("Start processing zip file '%s'.", nested_zip_name))
+  # now only on csv file in one zip file, it is simple. TODO: genelized to multiple csv files in one zip file
+  csv_files_path <- get_csv_file_path(main_zip_path, nested_zip_path)
+
+  table_name <- file_path_sans_ext(nested_zip_name)
+
+  # Open connection to the nested ZIP file within the main archive
+  csv_conn_for_type <- get_csv_conn(main_zip_path, nested_zip_path, csv_files_path)
+  # Specify column types for the CSV file
+  # csv_col_spec <- specify_type_for_read_csv(csv_conn_for_type,
+  #                                           numeric_columns = character(0),
+  #                                           pattern = "Value|Price|VALUE|PRICE|COUNT")
+
+
+  csv_col_spec <- specify_type_for_mssql_from_csvfile(csv_conn_for_type,
+                                            numeric_columns = character(0),
+                                            pattern = "Value|Price|VALUE|PRICE|COUNT")
+
+  csv_col_spec_df <- csv_col_spec %>%
+    as.data.frame() %>%
+    tibble::rownames_to_column("COLUMN_NAME")  %>%
+    set_names( c("COLUMN_NAME","COLUMN_TYPE")) %>%
+    mutate(COLUMN_TYPE = str_split_i(COLUMN_TYPE, " ", 2))
+
+  csv_file_col_spec = tibble(
+    main_zip_path = main_zip_path,
+    nested_zip_path = nested_zip_path,
+    csv_files_path = csv_files_path,
+    table_name = table_name,
+    file_loaded = FALSE
+  ) %>% tidyr::crossing(csv_col_spec_df)
+
+  bca_csv_file_meta_data_df = bca_csv_file_meta_data_df %>% bind_rows(
+    csv_file_col_spec
+  )
+
+}
+
+# save the meta file back to LAN
+
+bca_csv_file_meta_data_df  %>%  write_csv(
+  file.path(
+    lan_csv_file_path,
+    "DATABASE/Citrix/BC Assessment/2025/Feb 2025/",
+    "bca_csv_file_meta_data_with_sql_names.csv"
+  )
+)
+
+
 target_schema = "dev"
 mssql_conn = decimal_conn
-i = 1
+
+
+
 # loop through the selected_files and load them to mssql
-for (i in 1:nrow(selected_files)) {
+for (i in 1:3) { #nrow(selected_files)
 
   nested_zip_path = selected_files %>% slice(i) %>%
   pull(path)
@@ -255,9 +384,6 @@ for (i in 1:nrow(selected_files)) {
 
   csv_conn_for_reader <- get_csv_conn(main_zip_path, nested_zip_path, csv_files_path)
   csv_data <- read_csv(csv_conn_for_reader, col_types = csv_col_spec)
-  # Convert columns: force specific columns to numeric
-  # numeric_cols <- c("Price", "Value")  # your explicit numeric columns
-  # csv_data <- convert_column_types(csv_data, numeric_columns = numeric_cols)
 
   # Remove the file extension from the table name
   log_info(sprintf("Get table name from '%s'.", csv_files_path))

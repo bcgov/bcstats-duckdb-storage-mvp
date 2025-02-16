@@ -322,7 +322,7 @@ library(readr)
 library(purrr)
 
 
-specify_type_for_read_csv <- function(file, numeric_columns = character(0), pattern = "Value|Price") {
+specify_type_for_read_csv <- function(file, numeric_columns = character(0), pattern = "Value|Price|VALUE|PRICE|COUNT") {
   # Read header only to get column names
   header <- read_csv(file, n_max = 0)
   col_names <- names(header)
@@ -357,19 +357,19 @@ get_csv_conn <- function(main_zip_path, nested_zip_path, csv_files_path) {
 
 
 # Function to read a CSV file from a nested ZIP within the main archive
-read_csv_from_nested_zip <- function(main_zip_path, nested_zip_path, csv_files_path) {
-  # Open connection to the nested ZIP file within the main archive
-  csv_conn_for_type <- get_csv_conn(main_zip_path, nested_zip_path, csv_files_path)
-  # Specify column types for the CSV file
-  col_spec <- specify_type_for_read_csv(csv_conn_for_type,
-                                        numeric_columns = character(0),
-                                        pattern = "Value|Price")
-
-  # Read the CSV using the custom col_types specification
-  csv_conn_for_reader <- get_csv_conn(main_zip_path, nested_zip_path, csv_files_path)
-  csv_data <- read_csv(csv_conn_for_reader, col_types = col_spec)
-  return(csv_data)
-}
+# read_csv_from_nested_zip <- function(main_zip_path, nested_zip_path, csv_files_path) {
+#   # Open connection to the nested ZIP file within the main archive
+#   csv_conn_for_type <- get_csv_conn(main_zip_path, nested_zip_path, csv_files_path)
+#   # Specify column types for the CSV file
+#   col_spec <- specify_type_for_read_csv(csv_conn_for_type,
+#                                         numeric_columns = character(0),
+#                                         pattern = "Value|Price")
+#
+#   # Read the CSV using the custom col_types specification
+#   csv_conn_for_reader <- get_csv_conn(main_zip_path, nested_zip_path, csv_files_path)
+#   csv_data <- read_csv(csv_conn_for_reader, col_types = col_spec)
+#   return(csv_data)
+# }
 
 # Function to convert column types in a data frame
 convert_column_types <- function(df, numeric_columns = character(0), pattern = "Value|Price|VALUE|PRICE|COUNT") {
@@ -383,7 +383,43 @@ convert_column_types <- function(df, numeric_columns = character(0), pattern = "
   df
 }
 
-specify_type_for_mssql_table <- function(df, numeric_columns = character(0), pattern = "Value|Price") {
+# This function dynamically specifies the column types for a CSV file to be used in an MS SQL Server table creation.
+# It reads the header of the CSV file to get column names and then builds column definitions based on the column names.
+# Columns that match the specified numeric_columns or pattern are defined as NUMERIC(18,2), while others are defined as VARCHAR(255).
+# The function returns a vector of column definitions as strings, each in the format "[ColumnName] DataType".
+
+specify_type_for_mssql_from_csvfile <- function(file, numeric_columns = character(0), pattern = "Value|Price|VALUE|PRICE|COUNT") {
+  # Read header only to get column names
+  header <- read_csv(file, n_max = 0)
+  col_names <- names(header)
+
+  # Build column definitions dynamically from the dataframe's column names.
+  column_defs <- sapply(col_names, function(col) {
+    if (col %in% numeric_columns || grepl(pattern, col, ignore.case = TRUE)) {
+      sprintf("[%s] NUMERIC(18,2)", col)
+    } else {
+      sprintf("[%s] VARCHAR(255)", col)
+    }
+  })
+
+  return(column_defs)
+
+}
+
+# This function dynamically specifies the column types for a CSV file to be used in an MS SQL Server table creation.
+# It reads the header of the CSV file to get column names and then builds column definitions based on the column names.
+# Columns that match the specified numeric_columns or pattern are defined as NUMERIC(18,2), while others are defined as VARCHAR(255).
+# The function returns a vector of column definitions as strings, each in the format "[ColumnName] DataType".
+# 
+# Parameters:
+# - file: The path to the CSV file.
+# - numeric_columns: A character vector of column names that should be treated as numeric.
+# - pattern: A regular expression pattern to match column names that should be treated as numeric.
+# 
+# Returns:
+# - A character vector of column definitions for the CSV file.
+
+specify_type_for_mssql_table <- function(df, numeric_columns = character(0), pattern = "Value|Price|VALUE|PRICE|COUNT") {
   # Build column definitions dynamically from the dataframe's column names.
   column_defs <- sapply(names(df), function(col) {
     if (col %in% numeric_columns || grepl(pattern, col, ignore.case = TRUE)) {
@@ -414,6 +450,20 @@ create_custom_table <- function(conn, table_name, target_schema, df, column_defs
 # all the funcitons in csv to mssql already implemented in R dbi functions, so we can refactor them by replacing our functions with dbi functions.
 
 # copy in batches, use arrow_batch.get_next() to get it stopped.
+# This function copies data from a DuckDB table to an MS SQL Server table in chunks.
+# It utilizes Arrow for efficient data transfer and provides a progress bar to track the copying process.
+# 
+# Parameters:
+# - duckdb_conn: The connection to the DuckDB database.
+# - mssql_conn: The connection to the MS SQL Server database.
+# - table_name: The name of the table to copy data from in DuckDB and to in MS SQL Server.
+# - target_schema: The schema in MS SQL Server where the table will be created.
+# - total_rows: The total number of rows in the DuckDB table to be copied.
+# 
+# Returns:
+# - None. This function logs the progress of the data copying process and updates the progress bar.
+#
+
 copy_data_duckdb_mssql_in_chunk <- function(duckdb_conn, mssql_conn, table_name, target_schema, total_rows) {
   # Initialize progress bar and copied row count
   total_rows_copied <- 0
@@ -445,11 +495,21 @@ copy_data_duckdb_mssql_in_chunk <- function(duckdb_conn, mssql_conn, table_name,
 
     # Update total rows copied
     total_rows_copied <- dbGetRowCount(arrow_query_rs)
-
+    log_info(sprintf(" Still more rows to copy for table '%s'. Total rows copied: %d.", table_name, total_rows_copied))
     # Update progress bar and log every 1% completion
-    progress_info <- update_progress_bar(total_rows_copied, total_rows, progress_bar, last_logged_percentage)
-    progress_bar <- progress_info$progress_bar
-    last_logged_percentage <- progress_info$last_logged_percentage
+    percentage_step = 5
+    percentage_completed <- floor((total_rows_copied / total_rows) * 100)
+    log_info(sprintf(" Still more rows to copy for table '%s'. %d percent of total rows copied: .", table_name, percentage_completed))
+    if (percentage_completed >= last_logged_percentage + percentage_step) {
+      new_progress <- strrep("-", (percentage_completed - last_logged_percentage) / percentage_step)
+      progress_bar <- paste0(progress_bar, new_progress)
+      # log_info(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, percentage_completed, total_rows_copied, total_rows),
+      #          in_place = TRUE)
+      cat(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, percentage_completed, total_rows_copied, total_rows))
+      flush.console()
+    }
+
+    last_logged_percentage = percentage_completed
 
     # Print updated progress bar and percentage
     # log_info(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, last_logged_percentage, total_rows_copied, total_rows))
@@ -462,8 +522,23 @@ copy_data_duckdb_mssql_in_chunk <- function(duckdb_conn, mssql_conn, table_name,
     log_info(sprintf("Finished copying table '%s' to MS SQL Server.", table_name))
 }
 
-# ## Function to read csv into duckdb using three different settings
-#
+# Function to read csv into duckdb using three different settings
+# 
+# This function allows for the loading of a CSV file into a DuckDB database using three different approaches:
+# 1. Without specifying a schema or column types, allowing DuckDB to automatically infer the schema.
+# 2. By specifying a schema for the CSV file.
+# 3. By specifying the column types for the CSV file.
+# 
+# Parameters:
+# - duckdb_conn: The connection to the DuckDB database.
+# - csv_path: The path to the CSV file to be loaded.
+# - table_name: The name of the table in the DuckDB database where the CSV file will be loaded.
+# - col_type: A vector specifying the data types for each column in the CSV file.
+# - csv_schema: A string specifying the schema for the CSV file.
+# 
+# Returns:
+# - None. This function updates the DuckDB database directly.
+# 
 duckdb_load_csv <- function(duckdb_conn,
                             csv_path,
                             table_name,
@@ -598,15 +673,6 @@ copy_duckdb_r_data_to_mssql <- function(csv_table,
   # arrow_csv_table <- arrow::arrow_table(csv_table)
   # arrow::to_duckdb(arrow_csv_table, table_name , con = duckdb_conn)
   # This conversion happens once and uses Arrow’s efficient C++ routines. In many cases this method is faster than having DuckDB internally convert an R data frame on registration.
-
-  # Assuming 'df' is your data frame and 'virtual_table_name' is your desired table name in DuckDB
-  # this is super slow
-  # duckdb_register(duckdb_conn, table_name, csv_table)
-  #   Considerations:
-  #
-  #     Performance: Copying the data into DuckDB (dbWriteTable()) can lead to faster query performance, especially for large datasets, since the data is stored in DuckDB's optimized format.
-  #
-  #     Memory Usage: Registering the data frame as a virtual table (duckdb_register()) avoids data duplication, which can be beneficial if memory usage is a concern.
 
   # Fetch total row count from DuckDB
   total_rows <- get_total_row_count(duckdb_conn, table_name)
