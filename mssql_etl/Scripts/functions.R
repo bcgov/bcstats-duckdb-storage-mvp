@@ -655,34 +655,38 @@ copy_data_duckdb_mssql_in_chunk <- function(
 
     # Update total rows copied
     total_rows_copied <- dbGetRowCount(arrow_query_rs)
-    log_info(sprintf(
-      " Still more rows to copy for table '%s'. Total rows copied: %d.",
-      table_name,
-      total_rows_copied
-    ))
+    # log_info(sprintf(
+    #   " Still more rows to copy for table '%s'. Total rows copied: %d.",
+    #   table_name,
+    #   total_rows_copied
+    # ))
     # Update progress bar and log every 1% completion
     percentage_step = 5
     percentage_completed <- floor((total_rows_copied / total_rows) * 100)
-    log_info(sprintf(
-      " Still more rows to copy for table '%s'. %d percent of total rows copied: .",
-      table_name,
-      percentage_completed
-    ))
+
     if (percentage_completed >= last_logged_percentage + percentage_step) {
+
+      log_info(sprintf(
+        " Still more rows to copy for table '%s'. Total rows copied: %d. %d percent of total rows copied: .",
+        table_name,
+        total_rows_copied,
+        percentage_completed
+      ))
+
       new_progress <- strrep(
         "-",
         (percentage_completed - last_logged_percentage) / percentage_step
       )
       progress_bar <- paste0(progress_bar, new_progress)
-      # log_info(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, percentage_completed, total_rows_copied, total_rows),
-      #          in_place = TRUE)
-      cat(sprintf(
-        "\r[%s] %d%% (%d/%d rows copied)",
-        progress_bar,
-        percentage_completed,
-        total_rows_copied,
-        total_rows
-      ))
+      log_info(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, percentage_completed, total_rows_copied, total_rows),
+               in_place = TRUE)
+      # cat(sprintf(
+      #   "\r[%s] %d%% (%d/%d rows copied)",
+      #   progress_bar,
+      #   percentage_completed,
+      #   total_rows_copied,
+      #   total_rows
+      # ))
       flush.console()
     }
 

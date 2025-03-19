@@ -215,6 +215,7 @@ for (i in 1:nrow(health_csv_file_list)) {
 
   if (one_table$file_loaded | sql_table_name == "CLR_EXT_20190527") {
     # do nothing
+    log_info(sprintf("The table '%s' already processed.", file_name))
   } else if (i < 86) {
    # file before 20230828
     copy_duckdb_csv_to_mssql(
@@ -225,7 +226,6 @@ for (i in 1:nrow(health_csv_file_list)) {
       batch_size = 100*256,
       col_type = csv_col_types_before_202308
     )
-    health_csv_file_list[i, "file_loaded"] = T
 
   }
   else {
@@ -239,17 +239,23 @@ for (i in 1:nrow(health_csv_file_list)) {
       batch_size = 100*256,
       col_type = csv_col_types
     )
-    health_csv_file_list[i, "file_loaded"] = T
+
   }
 
-  # save the meta file back to LAN
-  health_csv_file_list  %>%  write_csv(
-    file.path(
-      lan_csv_file_path,
-      "Population Estimates/Sub-Provincial (Annual)/01_Health Monthly Client Data/",
-      "clr_ext_csv_files_list_with_sql_names.csv"
+
+
+  if (DBI::dbExistsTable(conn = decimal_conn, name = Id(schema = "dev", table = sql_table_name))) {
+    health_csv_file_list[i, "file_loaded"] = T
+    # save the meta file back to LAN
+    health_csv_file_list  %>%  write_csv(
+      file.path(
+        lan_csv_file_path,
+        "Population Estimates/Sub-Provincial (Annual)/01_Health Monthly Client Data/",
+        "clr_ext_csv_files_list_with_sql_names.csv"
+      )
     )
-  )
+  }
+
 }
 
 
