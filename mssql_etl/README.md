@@ -106,13 +106,17 @@ First, we need to run the Initials scripts to create the initial tables and view
    - Execute the scripts  `/Scripts` folder to create the raw tables and views.
     - `csv_file_meta_data.r` creates meta data for those raw CSV files received from MOH.
     - `csv_to_mssql.r` loads CSV files and does basic ETL to decimal MSSQL database.
-
+    - `copy_table_from_dev_to_prod_mssql.r` copy tables in dev schema to prod schema.
     - `generate_sql_query_for_healthclientfile_in_R.r` generates SQL queries for ETL on the health client file in R.
       - creates new columns missing in the raw data
         - creates new columns for the EFF_DATE, END_DATE dimension
       - fill missing value using default values
       - create indexes in those tables
-   
+ 
+    - this step is working in 2025-03-18
+    - all the following steps are not implemented yet.
+
+## TODO 
 2. **Create Initial Tables and Views**:   
    - Execute the scripts in the `/Initials` folder to create the initial tables and views.
    - Ensure that the tables and views are created successfully without any errors.

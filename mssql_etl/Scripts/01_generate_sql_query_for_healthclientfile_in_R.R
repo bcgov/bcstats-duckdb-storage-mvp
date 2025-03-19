@@ -22,11 +22,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and limitations under the License.
 
-
 ############################################################################################################################################
 # Dev database: duckdb, Prod database: MS SQL server
 ############################################################################################################################################
-
 
 # Load required library
 library(tidyverse)
@@ -37,7 +35,7 @@ library(odbc)
 library(dplyr)
 library(arrow)
 # install.packages("\\\\Client\\C$\\Users\\YourUserName\\Downloads\\nanoarrow_0.6.0.tar.gz", repos = NULL, type = "source")
-library(nanoarrow)  # For Arrow integration
+library(nanoarrow) # For Arrow integration
 library(duckdb)
 library(log4r)
 source("./mssql_etl/Scripts/functions.r")
@@ -45,11 +43,14 @@ source("./mssql_etl/Scripts/functions.r")
 # This path is retrieved from the configuration file
 lan_csv_file_path = config::get("lan_csv_file_path")
 
-log_dir= "DATABASE/Citrix/log/"
+log_dir = "DATABASE/Citrix/log/"
 
-dir.create(file.path(lan_csv_file_path,log_dir))
+dir.create(file.path(lan_csv_file_path, log_dir))
 
-log_file_path = file.path(file.path(lan_csv_file_path,log_dir), glue::glue("Read_csv_file_write_to_sqlserver_{Sys.Date()}.log"))
+log_file_path = file.path(
+  file.path(lan_csv_file_path, log_dir),
+  glue::glue("Read_csv_file_write_to_sqlserver_{Sys.Date()}.log")
+)
 
 file_logger = logger(appenders = file_appender(log_file_path))
 
@@ -60,20 +61,29 @@ info(file_logger, "Starte reading csv file write to sqlserver")
 db_config <- config::get("decimal")
 my_schema <- config::get("myschema")
 # ---- Connection to decimal ----
-decimal_conn <- dbConnect(odbc::odbc(),
-                          Driver = db_config$driver,
-                          Server = db_config$server,
-                          Database = db_config$database,
-                          Trusted_Connection = "True")
+decimal_conn <- dbConnect(
+  odbc::odbc(),
+  Driver = db_config$driver,
+  Server = db_config$server,
+  Database = db_config$database,
+  Trusted_Connection = "True"
+)
 
 # Query to list all tables in the DuckDB database
-dev_tables <- dbGetQuery(decimal_conn, "SELECT table_name FROM information_schema.tables WHERE table_schema = 'dev';")
+dev_tables <- dbGetQuery(
+  decimal_conn,
+  "SELECT table_name FROM information_schema.tables WHERE table_schema = 'dev';"
+)
 
 # Display the list of tables
 print(dev_tables)
 
-health_client_tables <- dev_tables %>% filter(str_detect(table_name, pattern = "CLR_EXT_|bc_stat_population_estimates|BC_STAT_POPULATION_ESTIMATES"))
-health_client_tables$table_name %>% paste(  collapse = "', '")
+health_client_tables <- dev_tables %>%
+  filter(str_detect(
+    table_name,
+    pattern = "CLR_EXT_|bc_stat_population_estimates|BC_STAT_POPULATION_ESTIMATES"
+  ))
+health_client_tables$table_name %>% paste(collapse = "', '")
 
 # remove   'CLR_EXT_20200213_for_201107', now.
 table_names = c(
@@ -167,34 +177,6 @@ table_names = c(
   'BC_STAT_POPULATION_ESTIMATES_20240926'
 )
 
-# Function to extract date parts from table name
-extract_date_parts <- function(table_name) {
-  date_part <- gsub(".*_([0-9]{8}).*", "\\1", table_name)
-  year <- substr(date_part, 1, 4)
-  month <- substr(date_part, 5, 6)
-  day <- substr(date_part, 7, 8)
-  list(year = year, month = month, day = day)
-}
-
-# Helper function to get the last day of a month
-get_last_day <- function(year, month) {
-  # Convert to numeric to handle edge cases
-  month <- as.numeric(month)
-  year <- as.numeric(year)
-
-  # Handle December (month 12)
-  if (month == 12) {
-    next_month <- as.Date(paste0(year + 1, "-01-01")) # January of the next year
-  } else {
-    next_month <- as.Date(paste0(year, "-", sprintf("%02d", month + 1), "-01"))
-  }
-
-  last_day <- next_month - 1
-  format(last_day, "%d")
-}
-
-
-
 
 ############################################################################################
 # Create missing EFF_DATE, END_DATA, and other columns in health client roster files
@@ -209,7 +191,6 @@ generate_index_name <- function(table, columns) {
   index_name <- paste0("IDX_", table, "_", paste(columns, collapse = "_"))
   return(index_name)
 }
-
 
 
 # Iterate over table names and generate SQL for each
@@ -232,21 +213,37 @@ for (i in seq_along(table_names)) {
   # According to ECON team, the actual year month is the month before the month in the file name.
 
   date_year_part <- as.numeric(date_parts$year)
-  date_month_part <- as.numeric(date_parts$month)-1
+  date_month_part <- as.numeric(date_parts$month) - 1
 
-  if (date_parts$month == "01"){
-    date_year_part <- as.numeric(date_parts$year) -1
+  if (date_parts$month == "01") {
+    date_year_part <- as.numeric(date_parts$year) - 1
     date_month_part <- 12
   }
 
   # Determine if the date is before 202308
-  table_date <- as.numeric(paste0(date_year_part, str_pad(date_month_part,width = 2, side = "left", pad = "0")))
+  table_date <- as.numeric(paste0(
+    date_year_part,
+    str_pad(date_month_part, width = 2, side = "left", pad = "0")
+  ))
 
   # Format EFF_DATE and END_DATE defaults
-  eff_date_default <- paste0(date_year_part, "-", str_pad(date_month_part,width = 2, side = "left", pad = "0"), "-01")
-  end_date_default <- paste0(date_year_part, "-", str_pad(date_month_part,width = 2, side = "left", pad = "0"), "-", get_last_day(date_year_part, date_month_part))
+  eff_date_default <- paste0(
+    date_year_part,
+    "-",
+    str_pad(date_month_part, width = 2, side = "left", pad = "0"),
+    "-01"
+  )
+  end_date_default <- paste0(
+    date_year_part,
+    "-",
+    str_pad(date_month_part, width = 2, side = "left", pad = "0"),
+    "-",
+    get_last_day(date_year_part, date_month_part)
+  )
 
-  log_info(glue::glue("Start working on table: {table}, the date is {table_date}"))
+  log_info(glue::glue(
+    "Start working on table: {table}, the date is {table_date}"
+  ))
   # Generate SQL for updating columns and replacing NULL values
   if (table_date < 202307) {
     # For tables before 202307(table name is 20230827), set default EFF_DATE and END_DATE
@@ -268,25 +265,28 @@ for (i in seq_along(table_names)) {
     # dbExecute(decimal_conn, alter_table_sql)
 
     update_table_sql <- paste0(
-      "UPDATE dev.", table, " \n",
+      "UPDATE dev.",
+      table,
+      " \n",
       "SET \n",
       # "    effective_year = ", date_parts$year, ", \n",
       # "    effective_month = ", date_parts$month, ", \n",
       # "    effective_day = ", date_parts$day, ", \n",
-      "    EFF_DATE = '", eff_date_default, "', \n",
-      "    END_DATE = '", end_date_default, "';"
+      "    EFF_DATE = '",
+      eff_date_default,
+      "', \n",
+      "    END_DATE = '",
+      end_date_default,
+      "';"
     )
     # Execute the UPDATE statement
     dbExecute(decimal_conn, update_table_sql)
-
-
-
-
-
   } else {
     # For tables after 202307, use ISNULL to handle missing values
 
-    log_info(glue::glue("Start adding three columns: effective year, month, and day"))
+    log_info(glue::glue(
+      "Start adding three columns: effective year, month, and day"
+    ))
     # # Generate SQL for adding new columns
     # alter_table_sql <- paste0(
     #   "ALTER TABLE dev.", table, " \n",
@@ -299,34 +299,38 @@ for (i in seq_along(table_names)) {
     # # # Execute the ALTER TABLE statement
     # dbExecute(decimal_conn, alter_table_sql)
 
-#  should not touch the raw data. only create new columns
+    #  should not touch the raw data. only create new columns
     log_info(glue::glue("Start working on table: {table}"))
     update_table_sql <- paste0(
-      "UPDATE dev.", table, " \n",
+      "UPDATE dev.",
+      table,
+      " \n",
       "SET \n",
       # "    effective_year = ", date_parts$year, ", \n",
       # "    effective_month = ", date_parts$month, ", \n",
       # "    effective_day = ", date_parts$day, ", \n",
       "    EFF_DATE = CASE \n",
-      "        WHEN EFF_DATE IS NULL THEN CAST('", eff_date_default, "' AS DATE) \n",
+      "        WHEN EFF_DATE IS NULL THEN CAST('",
+      eff_date_default,
+      "' AS DATE) \n",
       "        ELSE EFF_DATE  \n",
       "    END, \n",
       "    END_DATE = CASE \n",
-      "        WHEN END_DATE IS NULL THEN CAST('", end_date_default, "' AS DATE) \n",
+      "        WHEN END_DATE IS NULL THEN CAST('",
+      end_date_default,
+      "' AS DATE) \n",
       "        ELSE END_DATE  \n",
       "    END;"
     )
     # Execute the UPDATE statement
     dbExecute(decimal_conn, update_table_sql)
-
-
-
-
   }
 
   # Generate SQL for adding new columns for estimated date for each table, only run once after we add new data
   alter_table_sql <- paste0(
-    "ALTER TABLE dev.", table, " \n",
+    "ALTER TABLE dev.",
+    table,
+    " \n",
     "ADD \n",
     "    ESTIMATED_EFF_DATE DATE NULL, \n",
     "    ESTIMATED_END_DATE DATE NULL;\n"
@@ -335,16 +339,21 @@ for (i in seq_along(table_names)) {
   dbExecute(decimal_conn, alter_table_sql)
 
   update_table_sql <- paste0(
-    "UPDATE dev.", table, " \n",
+    "UPDATE dev.",
+    table,
+    " \n",
     "SET \n",
-    "    ESTIMATED_EFF_DATE = '", eff_date_default, "', \n",
-    "    ESTIMATED_END_DATE = '", end_date_default, "';"
+    "    ESTIMATED_EFF_DATE = '",
+    eff_date_default,
+    "', \n",
+    "    ESTIMATED_END_DATE = '",
+    end_date_default,
+    "';"
   )
   # Execute the UPDATE statement
   dbExecute(decimal_conn, update_table_sql)
 
   print(glue::glue("Finished table: {table}"))
-
 }
 
 # Disconnect from the database
@@ -368,8 +377,14 @@ generate_create_index <- function(table, columns) {
   # Using square brackets to handle special characters or spaces in table/column names
   columns_str <- paste(paste0("[", columns, "]"), collapse = ", ")
   sql <- paste0(
-    "CREATE INDEX [", index_name, "]\n",
-    "ON [dev].[", table, "] (", columns_str, ");\n"
+    "CREATE INDEX [",
+    index_name,
+    "]\n",
+    "ON [dev].[",
+    table,
+    "] (",
+    columns_str,
+    ");\n"
   )
 
   return(sql)
@@ -382,20 +397,35 @@ generate_drop_index <- function(table, columns) {
   # Construct the CREATE INDEX statement with proper quoting
   # Using square brackets to handle special characters or spaces in table/column names
   sql <- paste0(
-    "DROP INDEX IF EXISTS [", index_name, "]\n",
-    "ON [dev].[", table, "] ;\n"
+    "DROP INDEX IF EXISTS [",
+    index_name,
+    "]\n",
+    "ON [dev].[",
+    table,
+    "] ;\n"
   )
 
   return(sql)
 }
 
 # Generate all CREATE INDEX statements
-create_index_statements <- sapply(table_names, generate_create_index, columns = columns_to_index)
-drop_index_statements <- sapply(table_names, generate_drop_index, columns = columns_to_index)
+create_index_statements <- sapply(
+  table_names,
+  generate_create_index,
+  columns = columns_to_index
+)
+drop_index_statements <- sapply(
+  table_names,
+  generate_drop_index,
+  columns = columns_to_index
+)
 
 
 # Optionally, write the statements to a .sql file
-writeLines(create_index_statements, con = "./mssql_etl/Indexes/Create_Indexes_all_monthly_health_client_tables.sql")
+writeLines(
+  create_index_statements,
+  con = "./mssql_etl/Indexes/Create_Indexes_all_monthly_health_client_tables.sql"
+)
 
 # Print the generated SQL statements
 cat(create_index_statements, sep = "\n")
@@ -405,14 +435,16 @@ length(create_index_statements)
 # Execute each CREATE INDEX statement
 for (sql in create_index_statements) {
   print(sql)
-  tryCatch({
-    dbExecute(decimal_conn, sql)
-    cat("Successfully created index.\n")
-  }, error = function(e) {
-    cat("Error creating index:", e$message, "\n")
-  })
+  tryCatch(
+    {
+      dbExecute(decimal_conn, sql)
+      cat("Successfully created index.\n")
+    },
+    error = function(e) {
+      cat("Error creating index:", e$message, "\n")
+    }
+  )
 }
-
 
 
 cat(drop_index_statements, sep = "\n")
@@ -420,19 +452,20 @@ length(drop_index_statements)
 # Execute each CREATE INDEX statement
 for (sql in drop_index_statements) {
   print(sql)
-  tryCatch({
-    dbExecute(decimal_conn, sql)
-    cat("Successfully dropped index.\n")
-  }, error = function(e) {
-    cat("Error dropped index:", e$message, "\n")
-  })
+  tryCatch(
+    {
+      dbExecute(decimal_conn, sql)
+      cat("Successfully dropped index.\n")
+    },
+    error = function(e) {
+      cat("Error dropped index:", e$message, "\n")
+    }
+  )
 }
 
 #####################################################################################
 # update indexes
 ######################################################################################
-
-
 
 # Initialize empty vectors to store SQL statements
 update_stats_sql <- c()
@@ -440,12 +473,15 @@ rebuild_indexes_sql <- c()
 
 # Iterate over each table to generate SQL statements
 for (table in table_names) {
-
   # Generate UPDATE STATISTICS statement
   update_stat <- paste0(
-    "UPDATE STATISTICS [dev].[", table, "];\n",
+    "UPDATE STATISTICS [dev].[",
+    table,
+    "];\n",
     "GO\n",
-    "PRINT 'Statistics updated for [dev].[", table, "].';\n"
+    "PRINT 'Statistics updated for [dev].[",
+    table,
+    "].';\n"
   )
 
   update_stats_sql <- c(update_stats_sql, update_stat)
@@ -455,11 +491,19 @@ for (table in table_names) {
   index_name <- generate_index_name(table, columns_for_index)
 
   rebuild_index <- paste0(
-    "ALTER INDEX [", index_name, "]\n",
-    "ON [dev].[", table, "]\n",
+    "ALTER INDEX [",
+    index_name,
+    "]\n",
+    "ON [dev].[",
+    table,
+    "]\n",
     "REBUILD;\n",
     "GO\n",
-    "PRINT 'Index [", index_name, "] on [dev].[", table, "] rebuilt successfully.';\n"
+    "PRINT 'Index [",
+    index_name,
+    "] on [dev].[",
+    table,
+    "] rebuilt successfully.';\n"
   )
 
   rebuild_indexes_sql <- c(rebuild_indexes_sql, rebuild_index)
@@ -476,35 +520,45 @@ writeLines(maintenance_sql, con = "Database_Maintenance_Tasks.sql")
 # If you prefer to execute the generated maintenance queries directly from R, you can extend the script to establish a database connection and run the queries. Caution: Executing these statements will modify your database. Ensure you have appropriate backups and permissions before proceeding.
 ################################################################################################
 
-
-
-
 # Print a message indicating completion
-cat("Maintenance SQL statements have been generated and saved to 'Database_Maintenance_Tasks.sql'.\n")
+cat(
+  "Maintenance SQL statements have been generated and saved to 'Database_Maintenance_Tasks.sql'.\n"
+)
 
 # Iterate over each table to execute maintenance tasks
 for (table in table_names) {
-
   # Update Statistics
   update_stat <- paste0(
-    "UPDATE STATISTICS [dev].[", table, "];"
+    "UPDATE STATISTICS [dev].[",
+    table,
+    "];"
   )
 
   update_print <- paste0(
-    "PRINT 'Statistics updated for [dev].[", table, "].';"
+    "PRINT 'Statistics updated for [dev].[",
+    table,
+    "].';"
   )
 
   # Rebuild Index
   index_name <- generate_index_name(table, columns_for_index)
 
   rebuild_index <- paste0(
-    "ALTER INDEX [", index_name, "]\n",
-    "ON [dev].[", table, "]\n",
+    "ALTER INDEX [",
+    index_name,
+    "]\n",
+    "ON [dev].[",
+    table,
+    "]\n",
     "REBUILD;"
   )
 
   rebuild_print <- paste0(
-    "PRINT 'Index [", index_name, "] on [dev].[", table, "] rebuilt successfully.';"
+    "PRINT 'Index [",
+    index_name,
+    "] on [dev].[",
+    table,
+    "] rebuilt successfully.';"
   )
 
   # Combine statements
@@ -512,13 +566,22 @@ for (table in table_names) {
   print_commands <- paste(update_print, rebuild_print, sep = "\n")
 
   # Execute UPDATE STATISTICS
-  tryCatch({
-    dbExecute(decimal_conn, maintenance_commands)
-    dbExecute(decimal_conn, print_commands)
-    cat("Successfully executed maintenance tasks for table:", table, "\n")
-  }, error = function(e) {
-    cat("Error executing maintenance tasks for table:", table, "\n", e$message, "\n")
-  })
+  tryCatch(
+    {
+      dbExecute(decimal_conn, maintenance_commands)
+      dbExecute(decimal_conn, print_commands)
+      cat("Successfully executed maintenance tasks for table:", table, "\n")
+    },
+    error = function(e) {
+      cat(
+        "Error executing maintenance tasks for table:",
+        table,
+        "\n",
+        e$message,
+        "\n"
+      )
+    }
+  )
 
   # Optional: Pause between executions to manage load
   Sys.sleep(1) # Pause for 1 second
@@ -560,7 +623,8 @@ for (i in seq_along(table_names)) {
       ,[END_DATE]
       ,[ESTIMATED_EFF_DATE]
       ,[ESTIMATED_END_DATE]",
-    "    FROM dev.", table
+    "    FROM dev.",
+    table
   )
 
   if (i < length(table_names)) {
@@ -571,20 +635,18 @@ for (i in seq_along(table_names)) {
 }
 
 
-
 # Print the SQL query
 cat(sql_query)
 
-sql_query %>% write_lines("./mssql_etl/Views/view_union_all_health_client_file.sql")
+sql_query %>%
+  write_lines("./mssql_etl/Views/view_union_all_health_client_file.sql")
 
 dbExecute(decimal_conn, sql_query)
-
 
 
 #####################################################################################
 # use SQL Server's sys.dm_db_partition_stats and sys.allocation_units to calculate the size of each table in megabytes (MB).
 #####################################################################################
-
 
 # Function to sanitize table names for SQL queries
 sanitize_table_names <- function(tables) {
@@ -602,7 +664,8 @@ tables_in_clause <- paste0("'", table_names, "'", collapse = ",")
 
 # Define the SQL query to get table sizes
 # This query retrieves the total reserved space, data space, index space, and unused space for each table
-size_query <- sprintf("
+size_query <- sprintf(
+  "
   SELECT
       t.NAME AS TableName,
       SUM(p.rows) AS RowCounts,
@@ -624,8 +687,9 @@ size_query <- sprintf("
       t.NAME
   ORDER BY
       TotalSpaceKB DESC
-", tables_in_clause)
-
+",
+  tables_in_clause
+)
 
 
 # Execute the size query
@@ -633,8 +697,6 @@ size_data <- dbGetQuery(decimal_conn, size_query)
 
 # Close the database connection as we no longer need it
 # dbDisconnect(con)
-
-
 
 # Convert KB to MB for easier readability
 size_data <- size_data %>%
@@ -652,8 +714,11 @@ print(size_data)
 total_storage_MB <- sum(size_data$TotalSpaceMB, na.rm = TRUE)
 total_storage_GB <- total_storage_MB / 1024
 
-cat(sprintf("Total Estimated Storage Required for Consolidation:\n%.2f MB (%.2f GB)\n",
-            total_storage_MB, total_storage_GB))
+cat(sprintf(
+  "Total Estimated Storage Required for Consolidation:\n%.2f MB (%.2f GB)\n",
+  total_storage_MB,
+  total_storage_GB
+))
 
 
 # Assume PAGE compression with 4:1 ratio
@@ -662,8 +727,11 @@ compression_ratio <- 4
 # Adjust total storage
 adjusted_total_MB <- total_storage_MB / compression_ratio
 
-cat(sprintf("Adjusted Estimated Storage with 4:1 Compression:\n%.2f MB (%.2f GB)\n",
-            adjusted_total_MB, adjusted_total_MB / 1024))
+cat(sprintf(
+  "Adjusted Estimated Storage with 4:1 Compression:\n%.2f MB (%.2f GB)\n",
+  adjusted_total_MB,
+  adjusted_total_MB / 1024
+))
 
 
 ########################################################################################
@@ -672,7 +740,6 @@ cat(sprintf("Adjusted Estimated Storage with 4:1 Compression:\n%.2f MB (%.2f GB)
 # Repetitive Data Patterns: PAGE compression is more effective for data with repetitive patterns.
 # Write-Heavy Workloads: PAGE compression can increase CPU usage and slow down write operations.
 ########################################################################################
-
 
 # Define your list of table names
 
@@ -696,7 +763,11 @@ generate_compression_sql <- function(schema_table, compression) {
 }
 
 # Generate all ALTER TABLE statements
-compression_sql <- sapply(table_names, generate_compression_sql, compression = compression_type)
+compression_sql <- sapply(
+  table_names,
+  generate_compression_sql,
+  compression = compression_type
+)
 
 # Optional: Review the generated SQL statements
 print(compression_sql)
@@ -704,12 +775,19 @@ print(compression_sql)
 # Execute the compression statements
 # Wrap in a try-catch to handle any errors without stopping the entire process
 for (sql in compression_sql) {
-  tryCatch({
-    dbExecute(decimal_conn, sql)
-    cat(sprintf("Successfully compressed table with SQL: %s\n", sql))
-  }, error = function(e) {
-    cat(sprintf("Error compressing table with SQL: %s\nError Message: %s\n", sql, e$message))
-  })
+  tryCatch(
+    {
+      dbExecute(decimal_conn, sql)
+      cat(sprintf("Successfully compressed table with SQL: %s\n", sql))
+    },
+    error = function(e) {
+      cat(sprintf(
+        "Error compressing table with SQL: %s\nError Message: %s\n",
+        sql,
+        e$message
+      ))
+    }
+  )
 }
 
 # Disconnect from the database
@@ -720,7 +798,6 @@ cat("Database connection closed.\n")
 ###########################################################################################
 # calculate one studyid address history a time and append to the aggregated table
 ##############################################################################################
-
 
 # Load required libraries
 library(DBI)
@@ -737,7 +814,9 @@ con <- decimal_conn
 
 # Verify connection
 if (length(dbListTables(con)) == 0) {
-  stop("No tables found in the database. Please check your connection parameters.")
+  stop(
+    "No tables found in the database. Please check your connection parameters."
+  )
 } else {
   cat("Database connection established successfully.\n")
 }
@@ -747,9 +826,13 @@ if (length(dbListTables(con)) == 0) {
 # -----------------------------
 update_status <- function(con, study_id, new_status) {
   # Update the status column in the HEALTH_CLIENT_ID dimension table for the given study_id
-  update_query <- sprintf("UPDATE dev.DIM_HEALTH_CLIENT_ID
+  update_query <- sprintf(
+    "UPDATE dev.DIM_HEALTH_CLIENT_ID
                             SET Status = '%s'
-                            WHERE STUDY_ID IN ('%s');", new_status, study_id)
+                            WHERE STUDY_ID IN ('%s');",
+    new_status,
+    study_id
+  )
   dbExecute(con, update_query)
   cat(sprintf("Updated STUDY_ID %s status to '%s'.\n", study_id, new_status))
 }
@@ -763,7 +846,8 @@ process_study_id <- function(con, study_id, log_df) {
   start_time <- Sys.time()
 
   # Build the SQL script with the parameterized STUDY_ID
-  sql_script <- sprintf("
+  sql_script <- sprintf(
+    "
 
     -- =============================================
     -- Step 1: Clean and Prepare Data (Using Staging Table)
@@ -919,39 +1003,50 @@ process_study_id <- function(con, study_id, log_df) {
     -- Step 7: Cleanup Temporary Tables
     -- =============================================
     DROP TABLE IF EXISTS #CleanedData, #LaggedData, #ChangeFlagData, #GroupedKeyData, #GroupedData;
-  ", study_id)
+  ",
+    study_id
+  )
 
   # Execute the SQL script with error handling
-  tryCatch({
-    dbExecute(con, sql_script)
-    # If successful, mark the study_id as 'Processed'
-    update_status(con, study_id, "Processed")
-    end_time <- Sys.time()
-    duration <- as.numeric(difftime(end_time, start_time, units = "secs"))
-    log_df <- log_df %>% add_row(
-      STUDY_ID      = study_id,
-      Status        = "Success",
-      Start_Time    = start_time,
-      End_Time      = end_time,
-      Duration_secs = duration,
-      Message       = "Processed successfully."
-    )
-    cat(sprintf("STUDY_ID %s processed successfully in %.2f seconds.\n", study_id, duration))
-  }, error = function(e) {
-    # On error, update the status accordingly and log the error
-    update_status(con, study_id, "Error")
-    end_time <- Sys.time()
-    duration <- as.numeric(difftime(end_time, start_time, units = "secs"))
-    log_df <<- log_df %>% add_row(
-      STUDY_ID      = study_id,
-      Status        = "Failed",
-      Start_Time    = start_time,
-      End_Time      = end_time,
-      Duration_secs = duration,
-      Message       = e$message
-    )
-    cat(sprintf("Error processing STUDY_ID %s: %s\n", study_id, e$message))
-  })
+  tryCatch(
+    {
+      dbExecute(con, sql_script)
+      # If successful, mark the study_id as 'Processed'
+      update_status(con, study_id, "Processed")
+      end_time <- Sys.time()
+      duration <- as.numeric(difftime(end_time, start_time, units = "secs"))
+      log_df <- log_df %>%
+        add_row(
+          STUDY_ID = study_id,
+          Status = "Success",
+          Start_Time = start_time,
+          End_Time = end_time,
+          Duration_secs = duration,
+          Message = "Processed successfully."
+        )
+      cat(sprintf(
+        "STUDY_ID %s processed successfully in %.2f seconds.\n",
+        study_id,
+        duration
+      ))
+    },
+    error = function(e) {
+      # On error, update the status accordingly and log the error
+      update_status(con, study_id, "Error")
+      end_time <- Sys.time()
+      duration <- as.numeric(difftime(end_time, start_time, units = "secs"))
+      log_df <<- log_df %>%
+        add_row(
+          STUDY_ID = study_id,
+          Status = "Failed",
+          Start_Time = start_time,
+          End_Time = end_time,
+          Duration_secs = duration,
+          Message = e$message
+        )
+      cat(sprintf("Error processing STUDY_ID %s: %s\n", study_id, e$message))
+    }
+  )
 
   return(log_df)
 }
@@ -960,28 +1055,32 @@ process_study_id <- function(con, study_id, log_df) {
 # Main Processing Loop
 # -----------------------------
 # Fetch the total count of study_ids in the dev.DIM_HEALTH_CLIENT_ID table
-total_ids <- dbGetQuery(con, "SELECT COUNT(*) AS TotalIDs FROM dev.DIM_HEALTH_CLIENT_ID WHERE Status = 'Pending'")$TotalIDs
+total_ids <- dbGetQuery(
+  con,
+  "SELECT COUNT(*) AS TotalIDs FROM dev.DIM_HEALTH_CLIENT_ID WHERE Status = 'Pending'"
+)$TotalIDs
 cat(sprintf("Total STUDY_IDs to process: %d\n", total_ids))
 #
 
-
 # Initialize an empty dataframe for logging
 log_df <- tibble(
-  STUDY_ID      = character(),
-  Status        = character(),
-  Start_Time    = as.POSIXct(character()),
-  End_Time      = as.POSIXct(character()),
+  STUDY_ID = character(),
+  Status = character(),
+  Start_Time = as.POSIXct(character()),
+  End_Time = as.POSIXct(character()),
   Duration_secs = numeric(),
-  Message       = character()
+  Message = character()
 )
-
 
 
 iteration <- 0
 
 repeat {
   # Fetch one pending STUDY_ID record from the database
-  pending_record <- dbGetQuery(con, "SELECT TOP 1 STUDY_ID, Status FROM dev.DIM_HEALTH_CLIENT_ID WHERE Status = 'Pending'")
+  pending_record <- dbGetQuery(
+    con,
+    "SELECT TOP 1 STUDY_ID, Status FROM dev.DIM_HEALTH_CLIENT_ID WHERE Status = 'Pending'"
+  )
 
   # If no pending record is found, exit the loop
   if (nrow(pending_record) == 0) {
@@ -998,7 +1097,11 @@ repeat {
   }
 
   iteration <- iteration + 1
-  cat(sprintf("\nIteration %d: Processing STUDY_ID = %s\n", iteration, study_id))
+  cat(sprintf(
+    "\nIteration %d: Processing STUDY_ID = %s\n",
+    iteration,
+    study_id
+  ))
 
   # Process the current STUDY_ID
   log_df <- process_study_id(con, study_id, log_df)
@@ -1030,14 +1133,15 @@ repeat {
 # Display and save the final log
 # print(log_df)
 
-
-write.csv(log_df, "\\\\Client\\G$\\Operations\\Data Science and Analytics\\2024_bcstats_db\\mssql_etl\\processing_log_final.csv", row.names = FALSE)
+write.csv(
+  log_df,
+  "\\\\Client\\G$\\Operations\\Data Science and Analytics\\2024_bcstats_db\\mssql_etl\\processing_log_final.csv",
+  row.names = FALSE
+)
 
 # Disconnect from the database
 dbDisconnect(con)
 cat("Database connection closed.\n")
-
-
 
 ###########################################################################################
 # consolidate  88 monthly tables into a single compressed table in SQL Server without transferring data through R, you can leverage R to execute T-SQL queries directly on the server. This approach ensures that data movement remains within the database environment, optimizing performance and minimizing network overhead.
@@ -1235,8 +1339,6 @@ cat("Database connection closed.\n")
 # # Close the database connection
 # dbDisconnect(decimal_conn)
 # cat("Database connection closed.\n")
-
-
 
 # only 14 tables (after 20230827) have the EFF_DATE
 

@@ -10,27 +10,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and limitations under the License.
 
-
 # detach("package:duckdb", unload = TRUE)
 # path_to_file = "\\\\Client\\C$\\Users\\JDUAN\\Downloads\\duckdb_1.1.3-2.tar.gz"
 # install.packages(path_to_file, repos = NULL, type="source")
 
-
 get_csvs = function(paths, df) {
-
   paths_df = params$paths |>
     enframe() |>
     set_names(c("source", "dir")) |>
 
     # we call this a 'kluge!!!!!!!!!!!!!' # remove the names in the path
-    mutate(dir = case_match(dir,
-      "C:/Operations/Data Science and Analytics/2024_bcstats_db" ~ "C:/Operations/Data Science and Analytics/2024_bcstats_db/csvs",
-      "C:/Users/user/OneDrive - Government of BC/2024-025 user Database Test Warehouse" ~ "C:/Users/user/OneDrive - Government of BC/2024-025 user Database Test Warehouse/raw_data"
-      ))
+    mutate(
+      dir = case_match(
+        dir,
+        "C:/Operations/Data Science and Analytics/2024_bcstats_db" ~
+          "C:/Operations/Data Science and Analytics/2024_bcstats_db/csvs",
+        "C:/Users/user/OneDrive - Government of BC/2024-025 user Database Test Warehouse" ~
+          "C:/Users/user/OneDrive - Government of BC/2024-025 user Database Test Warehouse/raw_data"
+      )
+    )
 
   fs::dir_info(paths_df$dir, regexp = "\\.csv$") |>
     mutate(dir = fs::path_dir(path)) |>
-    mutate(csv = fs::path_file(path), .before=1) |>
+    mutate(csv = fs::path_file(path), .before = 1) |>
     inner_join(paths_df) |>
     inner_join(df |> mutate(csv_id = row_number())) |>
     mutate(csv = factor(csv, levels = df$csv)) |>
@@ -41,7 +43,8 @@ get_csvs = function(paths, df) {
     arrange(source, csv_id)
 }
 
-make_query = function(prefix, base, suffix) eval(parse(text = paste(prefix, base, suffix, sep = " |> ")))
+make_query = function(prefix, base, suffix)
+  eval(parse(text = paste(prefix, base, suffix, sep = " |> ")))
 
 
 read_csv_target = function(path, base_query) {
@@ -64,10 +67,7 @@ read_csv_target = function(path, base_query) {
 }
 
 
-
-
 duckDB_target = function(dbdir, path, base_query) {
-
   # just in case the db already exists
   if (fs::file_exists(dbdir)) {
     db = duckdb::dbConnect(duckdb::duckdb(), dbdir = dbdir)
@@ -80,16 +80,25 @@ duckDB_target = function(dbdir, path, base_query) {
   db = duckdb::dbConnect(duckdb::duckdb(), dbdir = dbdir)
   start = Sys.time()
   success = T
-  success = tryCatch({
-    duckdb::duckdb_read_csv(conn = db, name = 't1', files = path, header = T, nrow.check = Inf, transaction = T)
-  }, error = function(e) return(FALSE))
+  success = tryCatch(
+    {
+      duckdb::duckdb_read_csv(
+        conn = db,
+        name = 't1',
+        files = path,
+        header = T,
+        nrow.check = Inf,
+        transaction = T
+      )
+    },
+    error = function(e) return(FALSE)
+  )
   end = Sys.time()
 
   if (!success) success = TRUE # kluge?
 
   # sometimes it doesn't work, so re-run but use `nrow.check = Inf`
   if (!success) {
-
     # remove the db from previous step
     if (fs::file_exists(dbdir)) {
       gc()
@@ -99,7 +108,14 @@ duckDB_target = function(dbdir, path, base_query) {
     # read the db with `nrow.check = Inf`
     db = duckdb::dbConnect(duckdb::duckdb(), dbdir = dbdir)
     start = Sys.time()
-    duckdb::duckdb_read_csv(conn = db, name = 't1', files = path, header = T, nrow.check = Inf, transaction = T)
+    duckdb::duckdb_read_csv(
+      conn = db,
+      name = 't1',
+      files = path,
+      header = T,
+      nrow.check = Inf,
+      transaction = T
+    )
     end = Sys.time()
   }
   read_time = difftime(end, start)
@@ -117,25 +133,39 @@ duckDB_target = function(dbdir, path, base_query) {
   gc()
   try(fs::file_delete(dbdir))
 
-  return(list(success = success, read_time = read_time, query_time = query_time))
+  return(list(
+    success = success,
+    read_time = read_time,
+    query_time = query_time
+  ))
 }
 
 
-
-
 # Function to copy data from CSV to MS SQL Server
-copy_csv_to_mssql <- function(csv_path, mssql_conn, table_name, target_schema = "dev", batch_size = 100000) {
-
+copy_csv_to_mssql <- function(
+  csv_path,
+  mssql_conn,
+  table_name,
+  target_schema = "dev",
+  batch_size = 100000
+) {
   # Connect to DuckDB (in-memory)
   duckdb_conn <- dbConnect(duckdb::duckdb(), dbdir = ":memory:")
 
   # Read the CSV using DuckDB
   log_info(sprintf("Reading CSV file '%s' into DuckDB.", csv_path))
-  duckdb_table <- tbl(duckdb_conn, paste0("read_csv_auto('", csv_path, "')"))  # Lazily load CSV
+  duckdb_table <- tbl(duckdb_conn, paste0("read_csv_auto('", csv_path, "')")) # Lazily load CSV
 
   # Fetch total row count for progress tracking
-  total_rows <- duckdb_table %>% summarise(count = n()) %>% collect() %>% pull(count)
-  log_info(sprintf("CSV file '%s' contains %d rows. Starting to copy in batches.", csv_path, total_rows))
+  total_rows <- duckdb_table %>%
+    summarise(count = n()) %>%
+    collect() %>%
+    pull(count)
+  log_info(sprintf(
+    "CSV file '%s' contains %d rows. Starting to copy in batches.",
+    csv_path,
+    total_rows
+  ))
 
   offset <- 0
   total_rows_copied <- 0
@@ -144,11 +174,15 @@ copy_csv_to_mssql <- function(csv_path, mssql_conn, table_name, target_schema = 
     # Select a batch using filter() with row_number()
     batch <- duckdb_table %>%
       filter(row_number() > offset & row_number() <= (offset + batch_size)) %>%
-      collect()  # Materialize the batch in memory
+      collect() # Materialize the batch in memory
 
     # Break if no rows are left
     if (nrow(batch) == 0) {
-      log_info(sprintf("No more rows to copy for table '%s'. Total rows copied: %d.", table_name, total_rows_copied))
+      log_info(sprintf(
+        "No more rows to copy for table '%s'. Total rows copied: %d.",
+        table_name,
+        total_rows_copied
+      ))
       break
     }
 
@@ -158,30 +192,42 @@ copy_csv_to_mssql <- function(csv_path, mssql_conn, table_name, target_schema = 
     # Write the batch to MS SQL Server using nanoarrow
     dbWriteTableArrow(
       conn = mssql_conn,
-      name = DBI::Id(schema = target_schema, table = table_name),  # Target schema and table name
+      name = DBI::Id(schema = target_schema, table = table_name), # Target schema and table name
       value = arrow_batch,
-      append = (offset > 0)  # Append after the first batch
+      append = (offset > 0) # Append after the first batch
     )
 
     # Logging progress
     batch_rows <- nrow(batch)
     total_rows_copied <- total_rows_copied + batch_rows
-    log_info(sprintf("Batch starting at offset %d for table '%s' successfully copied. Rows in batch: %d.", offset, table_name, batch_rows))
+    log_info(sprintf(
+      "Batch starting at offset %d for table '%s' successfully copied. Rows in batch: %d.",
+      offset,
+      table_name,
+      batch_rows
+    ))
 
     # Increment offset for the next batch
     offset <- offset + batch_size
   }
 
-  log_info(sprintf("Finished copying table '%s' to MS SQL Server. Total rows copied: %d.", table_name, total_rows_copied))
+  log_info(sprintf(
+    "Finished copying table '%s' to MS SQL Server. Total rows copied: %d.",
+    table_name,
+    total_rows_copied
+  ))
 
   # Disconnect DuckDB
   dbDisconnect(duckdb_conn)
 }
 
 
-
-
-log_info <- function(msg, log_file = file_logger, print_flag = TRUE, in_place = FALSE) {
+log_info <- function(
+  msg,
+  log_file = file_logger,
+  print_flag = TRUE,
+  in_place = FALSE
+) {
   if (print_flag) {
     if (in_place) {
       # No timestamp and no newline for in-place updates.
@@ -194,20 +240,86 @@ log_info <- function(msg, log_file = file_logger, print_flag = TRUE, in_place = 
 }
 
 
+# Function to extract date parts from table name
+extract_date_parts <- function(table_name) {
+  date_part <- gsub(".*_([0-9]{8}).*", "\\1", table_name)
+  year <- substr(date_part, 1, 4)
+  month <- substr(date_part, 5, 6)
+  day <- substr(date_part, 7, 8)
+  list(year = year, month = month, day = day)
+}
+
+# Helper function to get the last day of a month
+get_last_day <- function(year, month) {
+  # Convert to numeric to handle edge cases
+  month <- as.numeric(month)
+  year <- as.numeric(year)
+
+  # Handle December (month 12)
+  if (month == 12) {
+    next_month <- as.Date(paste0(year + 1, "-01-01")) # January of the next year
+  } else {
+    next_month <- as.Date(paste0(year, "-", sprintf("%02d", month + 1), "-01"))
+  }
+
+  last_day <- next_month - 1
+  format(last_day, "%d")
+}
+
+
+# wrap this step in a function
+get_new_table_name <- function(table_name) {
+  date_parts <- extract_date_parts(table_name)
+  date_year_part <- as.numeric(date_parts$year)
+  date_month_part <- as.numeric(date_parts$month) - 1
+
+  if (date_parts$month == "01") {
+    date_year_part <- as.numeric(date_parts$year) - 1
+    date_month_part <- 12
+  }
+
+  table_date <- as.numeric(paste0(
+    date_year_part,
+    str_pad(date_month_part, width = 2, side = "left", pad = "0")
+  ))
+
+  new_table_name <- paste0(
+    "FCT_Health_Client",
+    "_",
+    table_date
+  )
+
+  return(new_table_name)
+}
 
 check_and_drop_table <- function(mssql_conn, table_name, target_schema) {
-  check_table_query <- sprintf("
+  check_table_query <- sprintf(
+    "
     SELECT 1
     FROM INFORMATION_SCHEMA.TABLES
-    WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'", target_schema, table_name)
+    WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
+    target_schema,
+    table_name
+  )
 
   table_exists <- dbGetQuery(mssql_conn, check_table_query)
 
   if (nrow(table_exists) > 0) {
-    log_info(sprintf("Table '%s.%s' exists in MS SQL Server. Dropping the table.", target_schema, table_name))
-    dbExecute(mssql_conn, sprintf("DROP TABLE [%s].[%s]", target_schema, table_name))
+    log_info(sprintf(
+      "Table '%s.%s' exists in MS SQL Server. Dropping the table.",
+      target_schema,
+      table_name
+    ))
+    dbExecute(
+      mssql_conn,
+      sprintf("DROP TABLE [%s].[%s]", target_schema, table_name)
+    )
   } else {
-    log_info(sprintf("Table '%s.%s' does not exist in MS SQL Server. Proceeding with the copy.", target_schema, table_name))
+    log_info(sprintf(
+      "Table '%s.%s' does not exist in MS SQL Server. Proceeding with the copy.",
+      target_schema,
+      table_name
+    ))
   }
 }
 
@@ -243,7 +355,6 @@ verify_duckdb_schema <- function(duckdb_conn, table_name) {
 #
 #   log_info(sprintf("Completed streaming data from DuckDB table '%s' to MS SQL Server.", table_name))
 # }
-
 
 # copy in batches, use arrow_batch.get_next() to get it stopped.
 # copy_data_duckdb_mssql_in_batches <- function(duckdb_conn, mssql_conn, table_name, target_schema, batch_size,total_rows) {
@@ -287,24 +398,41 @@ verify_duckdb_schema <- function(duckdb_conn, table_name) {
 #   }
 # }
 
-
-update_progress_bar <- function(total_rows_copied, total_rows, progress_bar, last_logged_percentage, step = 5) {
+update_progress_bar <- function(
+  total_rows_copied,
+  total_rows,
+  progress_bar,
+  last_logged_percentage,
+  step = 5
+) {
   percentage_completed <- floor((total_rows_copied / total_rows) * 100)
   if (percentage_completed >= last_logged_percentage + step) {
-    new_progress <- strrep("-", (percentage_completed - last_logged_percentage) / step)
+    new_progress <- strrep(
+      "-",
+      (percentage_completed - last_logged_percentage) / step
+    )
     progress_bar <- paste0(progress_bar, new_progress)
     # log_info(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, percentage_completed, total_rows_copied, total_rows),
     #          in_place = TRUE)
-    cat(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, percentage_completed, total_rows_copied, total_rows))
+    cat(sprintf(
+      "\r[%s] %d%% (%d/%d rows copied)",
+      progress_bar,
+      percentage_completed,
+      total_rows_copied,
+      total_rows
+    ))
     flush.console()
   }
-  list(progress_bar = progress_bar, last_logged_percentage = percentage_completed)
+  list(
+    progress_bar = progress_bar,
+    last_logged_percentage = percentage_completed
+  )
 }
 
 
 # create a list of lists to store the csv file information
 
-get_csv_file_path <- function(main_zip_path,nested_zip_path) {
+get_csv_file_path <- function(main_zip_path, nested_zip_path) {
   # Open connection to the nested ZIP file within the main archive
   nested_zip_con <- archive_read(main_zip_path, nested_zip_path)
   # on.exit(close(nested_zip_con), add = TRUE)
@@ -316,13 +444,15 @@ get_csv_file_path <- function(main_zip_path,nested_zip_path) {
 }
 
 
-
-
 library(readr)
 library(purrr)
 
 
-specify_type_for_read_csv <- function(file, numeric_columns = character(0), pattern = "Value|Price|VALUE|PRICE|COUNT") {
+specify_type_for_read_csv <- function(
+  file,
+  numeric_columns = character(0),
+  pattern = "Value|Price|VALUE|PRICE|COUNT"
+) {
   # Read header only to get column names
   header <- read_csv(file, n_max = 0)
   col_names <- names(header)
@@ -330,16 +460,15 @@ specify_type_for_read_csv <- function(file, numeric_columns = character(0), patt
   # Build a list of column types:
   col_types_list <- map(col_names, function(col) {
     if (col %in% numeric_columns || grepl(pattern, col, ignore.case = TRUE)) {
-      col_double()  # set as numeric
+      col_double() # set as numeric
     } else {
-      col_character()  # default to character
+      col_character() # default to character
     }
   })
   names(col_types_list) <- col_names
 
   # Create a col_types specification with cols()
   col_spec <- do.call(cols, col_types_list)
-
 }
 
 
@@ -372,7 +501,11 @@ get_csv_conn <- function(main_zip_path, nested_zip_path, csv_files_path) {
 # }
 
 # Function to convert column types in a data frame
-convert_column_types <- function(df, numeric_columns = character(0), pattern = "Value|Price|VALUE|PRICE|COUNT") {
+convert_column_types <- function(
+  df,
+  numeric_columns = character(0),
+  pattern = "Value|Price|VALUE|PRICE|COUNT"
+) {
   for (col in names(df)) {
     if (col %in% numeric_columns || grepl(pattern, col, ignore.case = TRUE)) {
       df[[col]] <- as.numeric(df[[col]])
@@ -388,7 +521,11 @@ convert_column_types <- function(df, numeric_columns = character(0), pattern = "
 # Columns that match the specified numeric_columns or pattern are defined as NUMERIC(18,2), while others are defined as VARCHAR(255).
 # The function returns a vector of column definitions as strings, each in the format "[ColumnName] DataType".
 
-specify_type_for_mssql_from_csvfile <- function(file, numeric_columns = character(0), pattern = "Value|Price|VALUE|PRICE|COUNT") {
+specify_type_for_mssql_from_csvfile <- function(
+  file,
+  numeric_columns = character(0),
+  pattern = "Value|Price|VALUE|PRICE|COUNT"
+) {
   # Read header only to get column names
   header <- read_csv(file, n_max = 0)
   col_names <- names(header)
@@ -403,23 +540,26 @@ specify_type_for_mssql_from_csvfile <- function(file, numeric_columns = characte
   })
 
   return(column_defs)
-
 }
 
 # This function dynamically specifies the column types for a CSV file to be used in an MS SQL Server table creation.
 # It reads the header of the CSV file to get column names and then builds column definitions based on the column names.
 # Columns that match the specified numeric_columns or pattern are defined as NUMERIC(18,2), while others are defined as VARCHAR(255).
 # The function returns a vector of column definitions as strings, each in the format "[ColumnName] DataType".
-# 
+#
 # Parameters:
 # - file: The path to the CSV file.
 # - numeric_columns: A character vector of column names that should be treated as numeric.
 # - pattern: A regular expression pattern to match column names that should be treated as numeric.
-# 
+#
 # Returns:
 # - A character vector of column definitions for the CSV file.
 
-specify_type_for_mssql_table <- function(df, numeric_columns = character(0), pattern = "Value|Price|VALUE|PRICE|COUNT") {
+specify_type_for_mssql_table <- function(
+  df,
+  numeric_columns = character(0),
+  pattern = "Value|Price|VALUE|PRICE|COUNT"
+) {
   # Build column definitions dynamically from the dataframe's column names.
   column_defs <- sapply(names(df), function(col) {
     if (col %in% numeric_columns || grepl(pattern, col, ignore.case = TRUE)) {
@@ -433,17 +573,27 @@ specify_type_for_mssql_table <- function(df, numeric_columns = character(0), pat
 }
 
 
-create_custom_table <- function(conn, table_name, target_schema, df, column_defs) {
-
-
+create_custom_table <- function(
+  conn,
+  table_name,
+  target_schema,
+  df,
+  column_defs
+) {
   # Construct the CREATE TABLE SQL command.
   create_sql <- sprintf(
     "CREATE TABLE [%s].[%s] (%s)",
-    target_schema, table_name, paste(column_defs, collapse = ", ")
+    target_schema,
+    table_name,
+    paste(column_defs, collapse = ", ")
   )
 
   dbExecute(conn, create_sql)
-  log_info(sprintf("Table '%s.%s' created in MS SQL Server.", target_schema, table_name))
+  log_info(sprintf(
+    "Table '%s.%s' created in MS SQL Server.",
+    target_schema,
+    table_name
+  ))
 }
 
 
@@ -452,60 +602,87 @@ create_custom_table <- function(conn, table_name, target_schema, df, column_defs
 # copy in batches, use arrow_batch.get_next() to get it stopped.
 # This function copies data from a DuckDB table to an MS SQL Server table in chunks.
 # It utilizes Arrow for efficient data transfer and provides a progress bar to track the copying process.
-# 
+#
 # Parameters:
 # - duckdb_conn: The connection to the DuckDB database.
 # - mssql_conn: The connection to the MS SQL Server database.
 # - table_name: The name of the table to copy data from in DuckDB and to in MS SQL Server.
 # - target_schema: The schema in MS SQL Server where the table will be created.
 # - total_rows: The total number of rows in the DuckDB table to be copied.
-# 
+#
 # Returns:
 # - None. This function logs the progress of the data copying process and updates the progress bar.
 #
 
-copy_data_duckdb_mssql_in_chunk <- function(duckdb_conn, mssql_conn, table_name, target_schema, total_rows) {
+copy_data_duckdb_mssql_in_chunk <- function(
+  duckdb_conn,
+  mssql_conn,
+  table_name,
+  target_schema,
+  total_rows
+) {
   # Initialize progress bar and copied row count
   total_rows_copied <- 0
-  last_logged_percentage <- 0  # Tracks the last percentage logged
-  progress_bar <- ""           # String to represent the progress bar
+  last_logged_percentage <- 0 # Tracks the last percentage logged
+  progress_bar <- "" # String to represent the progress bar
 
-    # Read a batch as an Arrow Table using dbGetQueryArrow
-    table_query <- sprintf("SELECT * FROM %s", table_name)
-    arrow_query_rs <- dbSendQueryArrow(duckdb_conn, table_query)
+  # Read a batch as an Arrow Table using dbGetQueryArrow
+  table_query <- sprintf("SELECT * FROM %s", table_name)
+  arrow_query_rs <- dbSendQueryArrow(duckdb_conn, table_query)
 
-    log_info(sprintf("Start copying table '%s' to MS SQL Server.", table_name))
+  log_info(sprintf("Start copying table '%s' to MS SQL Server.", table_name))
 
-    while(TRUE) {
+  while (TRUE) {
     # Check if arrow_batch is empty or NULL
-    if (dbHasCompleted(arrow_query_rs) ) {
-      log_info(sprintf("No more rows to copy for table '%s'. Total rows copied: %d.", table_name, total_rows_copied))
+    if (dbHasCompleted(arrow_query_rs)) {
+      log_info(sprintf(
+        "No more rows to copy for table '%s'. Total rows copied: %d.",
+        table_name,
+        total_rows_copied
+      ))
       break
     }
 
-    arrow_chunk <-  dbFetchArrowChunk(arrow_query_rs)
+    arrow_chunk <- dbFetchArrowChunk(arrow_query_rs)
 
     # Write the Arrow Table batch to MS SQL Server
     dbWriteTableArrow(
       conn = mssql_conn,
-      name = DBI::Id(schema = target_schema, table = table_name),  # Target schema and table name
-      value = arrow_chunk ,
+      name = DBI::Id(schema = target_schema, table = table_name), # Target schema and table name
+      value = arrow_chunk,
       append = TRUE # Append after the first batch
     )
 
     # Update total rows copied
     total_rows_copied <- dbGetRowCount(arrow_query_rs)
-    log_info(sprintf(" Still more rows to copy for table '%s'. Total rows copied: %d.", table_name, total_rows_copied))
+    log_info(sprintf(
+      " Still more rows to copy for table '%s'. Total rows copied: %d.",
+      table_name,
+      total_rows_copied
+    ))
     # Update progress bar and log every 1% completion
     percentage_step = 5
     percentage_completed <- floor((total_rows_copied / total_rows) * 100)
-    log_info(sprintf(" Still more rows to copy for table '%s'. %d percent of total rows copied: .", table_name, percentage_completed))
+    log_info(sprintf(
+      " Still more rows to copy for table '%s'. %d percent of total rows copied: .",
+      table_name,
+      percentage_completed
+    ))
     if (percentage_completed >= last_logged_percentage + percentage_step) {
-      new_progress <- strrep("-", (percentage_completed - last_logged_percentage) / percentage_step)
+      new_progress <- strrep(
+        "-",
+        (percentage_completed - last_logged_percentage) / percentage_step
+      )
       progress_bar <- paste0(progress_bar, new_progress)
       # log_info(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, percentage_completed, total_rows_copied, total_rows),
       #          in_place = TRUE)
-      cat(sprintf("\r[%s] %d%% (%d/%d rows copied)", progress_bar, percentage_completed, total_rows_copied, total_rows))
+      cat(sprintf(
+        "\r[%s] %d%% (%d/%d rows copied)",
+        progress_bar,
+        percentage_completed,
+        total_rows_copied,
+        total_rows
+      ))
       flush.console()
     }
 
@@ -516,64 +693,68 @@ copy_data_duckdb_mssql_in_chunk <- function(duckdb_conn, mssql_conn, table_name,
     # flush.console()  # Ensure immediate printing to console
 
     # Exit loop if all rows are copied
-    if (total_rows_copied>= total_rows) break
-    }
-    on.exit(dbClearResult(arrow_query_rs))  # Ensure query result is cleared
-    log_info(sprintf("Finished copying table '%s' to MS SQL Server.", table_name))
+    if (total_rows_copied >= total_rows) break
+  }
+  on.exit(dbClearResult(arrow_query_rs)) # Ensure query result is cleared
+  log_info(sprintf("Finished copying table '%s' to MS SQL Server.", table_name))
 }
 
 # Function to read csv into duckdb using three different settings
-# 
+#
 # This function allows for the loading of a CSV file into a DuckDB database using three different approaches:
 # 1. Without specifying a schema or column types, allowing DuckDB to automatically infer the schema.
 # 2. By specifying a schema for the CSV file.
 # 3. By specifying the column types for the CSV file.
-# 
+#
 # Parameters:
 # - duckdb_conn: The connection to the DuckDB database.
 # - csv_path: The path to the CSV file to be loaded.
 # - table_name: The name of the table in the DuckDB database where the CSV file will be loaded.
 # - col_type: A vector specifying the data types for each column in the CSV file.
 # - csv_schema: A string specifying the schema for the CSV file.
-# 
+#
 # Returns:
 # - None. This function updates the DuckDB database directly.
-# 
-duckdb_load_csv <- function(duckdb_conn,
-                            csv_path,
-                            table_name,
-                            col_type = NULL,
-                            csv_schema = NULL) {
-
+#
+duckdb_load_csv <- function(
+  duckdb_conn,
+  csv_path,
+  table_name,
+  col_type = NULL,
+  csv_schema = NULL
+) {
   if (is.null(csv_schema) & is.null(col_type)) {
-    test_csv_number = duckdb_read_csv(conn = duckdb_conn,
-                                      name = table_name,
-                                      files = csv_path)
+    test_csv_number = duckdb_read_csv(
+      conn = duckdb_conn,
+      name = table_name,
+      files = csv_path
+    )
     log_info(sprintf("CSV file '%s' loaded into DuckDB.", csv_path))
-  } else if (!is.null(csv_schema)){
+  } else if (!is.null(csv_schema)) {
     (# Read the CSV with the defined schema
-      dbExecute(
-        duckdb_conn,
-        glue::glue(
-          "CREATE TABLE {table_name} AS
+    dbExecute(
+      duckdb_conn,
+      glue::glue(
+        "CREATE TABLE {table_name} AS
     SELECT * FROM read_csv_auto('{csv_path}',
     columns = {csv_schema} )"
-        )
-      ))
+      )
+    ))
     log_info(sprintf("CSV file '%s' loaded into DuckDB with schema.", csv_path))
-    }
-  else if (!is.null(col_type)) {
+  } else if (!is.null(col_type)) {
     test_csv_number = duckdb_read_csv(
       conn = duckdb_conn,
       name = table_name,
       files = csv_path,
       col.types = col_type
     )
-    log_info(sprintf("CSV file '%s' loaded into DuckDB with column types.", csv_path))
-  } else
-  {
+    log_info(sprintf(
+      "CSV file '%s' loaded into DuckDB with column types.",
+      csv_path
+    ))
+  } else {
     # do nothing
-      }
+  }
 }
 
 ####################################################################
@@ -609,12 +790,15 @@ duckdb_load_csv <- function(duckdb_conn,
 #                 EFF_DATE = "DATE",
 #                 END_DATE = "DATE")
 ################################################################################
-copy_duckdb_csv_to_mssql <- function(csv_path, mssql_conn,
-                                     table_name,
-                                     target_schema = "dev",
-                                     batch_size = 100000,
-                                     col_type = NULL,
-                                     csv_schema = NULL) {
+copy_duckdb_csv_to_mssql <- function(
+  csv_path,
+  mssql_conn,
+  table_name,
+  target_schema = "dev",
+  batch_size = 100000,
+  col_type = NULL,
+  csv_schema = NULL
+) {
   log_info(sprintf("Start reading CSV file '%s'.", csv_path))
   # Connect to DuckDB (in-memory)
   duckdb_conn <- dbConnect(duckdb::duckdb(), dbdir = ":memory:")
@@ -623,19 +807,11 @@ copy_duckdb_csv_to_mssql <- function(csv_path, mssql_conn,
   log_info(sprintf("Reading CSV file '%s' into DuckDB.", csv_path))
   # duckdb_table <- tbl(duckdb_conn, paste0("read_csv_auto('", csv_path, "')"))  # Lazily load CSV
 
-
-  duckdb_load_csv(duckdb_conn,
-                  csv_path,
-                  table_name,
-                  col_type,
-                  csv_schema)
-
-
+  duckdb_load_csv(duckdb_conn, csv_path, table_name, col_type, csv_schema)
 
   # str(duckdb_table)
   # Fetch total row count from DuckDB
   total_rows <- get_total_row_count(duckdb_conn, table_name)
-
 
   # Check if the table exists in MS SQL Server and drop it if necessary
   check_and_drop_table(mssql_conn, table_name, target_schema)
@@ -647,7 +823,13 @@ copy_duckdb_csv_to_mssql <- function(csv_path, mssql_conn,
   # copy_data_duckdb_mssql(duckdb_conn, mssql_conn, table_name, target_schema)
   # copy_data_duckdb_mssql_in_batches(duckdb_conn, mssql_conn, table_name, target_schema, batch_size,total_rows)
   # copy_csv_to_mssql(csv_path, mssql_conn, table_name, target_schema, batch_size,total_rows)
-  copy_data_duckdb_mssql_in_chunk(duckdb_conn, mssql_conn, table_name, target_schema, total_rows)
+  copy_data_duckdb_mssql_in_chunk(
+    duckdb_conn,
+    mssql_conn,
+    table_name,
+    target_schema,
+    total_rows
+  )
 
   log_info(sprintf("Finished copying table '%s' to MS SQL Server.", table_name))
 
@@ -657,11 +839,13 @@ copy_duckdb_csv_to_mssql <- function(csv_path, mssql_conn,
 ################################################################################
 # a function for bca folio data, since csv already read in R, so skip the read_csv part. only load data from R into a duckdb table.
 
-copy_duckdb_r_data_to_mssql <- function(csv_table,
-                                        mssql_conn,
-                                     table_name,
-                                     target_schema = "dev",
-                                     batch_size = 100000) {
+copy_duckdb_r_data_to_mssql <- function(
+  csv_table,
+  mssql_conn,
+  table_name,
+  target_schema = "dev",
+  batch_size = 100000
+) {
   # Connect to DuckDB (in-memory)
   duckdb_conn <- dbConnect(duckdb::duckdb(), dbdir = ":memory:")
 
@@ -677,7 +861,6 @@ copy_duckdb_r_data_to_mssql <- function(csv_table,
   # Fetch total row count from DuckDB
   total_rows <- get_total_row_count(duckdb_conn, table_name)
 
-
   # Check if the table exists in MS SQL Server and drop it if necessary
   check_and_drop_table(mssql_conn, table_name, target_schema)
 
@@ -688,10 +871,16 @@ copy_duckdb_r_data_to_mssql <- function(csv_table,
   # copy_data_duckdb_mssql(duckdb_conn, mssql_conn, table_name, target_schema)
   # copy_data_duckdb_mssql_in_batches(duckdb_conn, mssql_conn, table_name, target_schema, batch_size,total_rows)
   # copy_csv_to_mssql(csv_path, mssql_conn, table_name, target_schema, batch_size,total_rows)
-  copy_data_duckdb_mssql_in_chunk(duckdb_conn, mssql_conn, table_name, target_schema, total_rows, batch_size )
+  copy_data_duckdb_mssql_in_chunk(
+    duckdb_conn,
+    mssql_conn,
+    table_name,
+    target_schema,
+    total_rows,
+    batch_size
+  )
 
   log_info(sprintf("Finished copying table '%s' to MS SQL Server.", table_name))
 
   dbDisconnect(duckdb_conn)
 }
-
