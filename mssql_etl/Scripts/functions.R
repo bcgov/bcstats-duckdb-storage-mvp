@@ -664,7 +664,7 @@ copy_data_duckdb_mssql_in_chunk <- function(
     percentage_step = 5
     percentage_completed <- floor((total_rows_copied / total_rows) * 100)
 
-    if (percentage_completed >= last_logged_percentage + percentage_step) {
+    if (percentage_completed >= (last_logged_percentage + percentage_step)) {
 
       log_info(sprintf(
         " Still more rows to copy for table '%s'. Total rows copied: %d. %d percent of total rows copied: .",

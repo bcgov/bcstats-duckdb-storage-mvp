@@ -122,82 +122,82 @@ health_csv_file_list = read_csv(
 #   'EFF_DATE': 'DATE',
 #   'END_DATE': 'DATE'
 # }"
-
-
-csv_col_types_before_202308 = c(
-                    STUDY_ID = "VARCHAR",
-                    BIRTH_YR_MON = "VARCHAR",
-                    SEX = "VARCHAR",
-                    POSTAL_CODE = "VARCHAR",
-                    CITY = "VARCHAR",
-                    STREET_LINE = "VARCHAR",
-                    LHA = "VARCHAR")
-
-# row names should be converted to a column
-csv_col_types_before_202308_df <- csv_col_types_before_202308 %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("COLUMN_NAME")  %>%
-  set_names(c("COLUMN_NAME", "COLUMN_TYPE"))
-
-csv_col_types = c(  STUDY_ID = "VARCHAR",
-                BIRTH_YR_MON = "VARCHAR",
-                SEX = "VARCHAR",
-                POSTAL_CODE = "VARCHAR",
-                CITY = "VARCHAR",
-                STREET_LINE = "VARCHAR",
-                LHA = "VARCHAR",
-                CHSA = "VARCHAR",
-                LATITUDE = "DOUBLE",
-                LONGITUDE = "DOUBLE",
-                EFF_DATE = "DATE",
-                END_DATE = "DATE")
-
-csv_col_types_df <- csv_col_types %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("COLUMN_NAME")  %>%
-  set_names( c("COLUMN_NAME","COLUMN_TYPE"))
-
-health_csv_file_meta_data_df <- data.frame(
-  file_name = character(),
-  file_name_no_suffix = character(),
-  sql_table_name = character(),
-  relative_path = character(),
-  subfolder_path = character(),
-  file_size = character(),
-  file_loaded = logical(),
-  COLUMN_NAME = character(),
-  COLUMN_TYPE = character()
-)
-
-# create a meta file to record the status of the csv files with data type information
-for (i in 1:nrow(health_csv_file_list)) {
-  one_table = health_csv_file_list %>% slice(i)
-
-  sql_table_name = one_table %>%
-    pull(sql_table_name)
-  if ( sql_table_name == "CLR_EXT_20190527") {
-    # do nothing
-  } else if (i < 86) {
-    # file before 20230828
-    health_csv_file_meta_data_df = health_csv_file_meta_data_df %>%
-      bind_rows(one_table%>% tidyr::crossing(csv_col_types_before_202308_df))
-  }
-  else {
-    health_csv_file_meta_data_df = health_csv_file_meta_data_df %>%
-      bind_rows(one_table %>% tidyr::crossing(csv_col_types_df))
-  }
-
-}
-
-# save the meta file back to LAN
-
-health_csv_file_meta_data_df  %>%  write_csv(
-  file.path(
-    lan_csv_file_path,
-    "Population Estimates/Sub-Provincial (Annual)/01_Health Monthly Client Data/",
-    "clr_ext_csv_files_list_with_sql_names_meta.csv"
-  )
-)
+#
+#
+# csv_col_types_before_202308 = c(
+#                     STUDY_ID = "VARCHAR",
+#                     BIRTH_YR_MON = "VARCHAR",
+#                     SEX = "VARCHAR",
+#                     POSTAL_CODE = "VARCHAR",
+#                     CITY = "VARCHAR",
+#                     STREET_LINE = "VARCHAR",
+#                     LHA = "VARCHAR")
+#
+# # row names should be converted to a column
+# csv_col_types_before_202308_df <- csv_col_types_before_202308 %>%
+#   as.data.frame() %>%
+#   tibble::rownames_to_column("COLUMN_NAME")  %>%
+#   set_names(c("COLUMN_NAME", "COLUMN_TYPE"))
+#
+# csv_col_types = c(  STUDY_ID = "VARCHAR",
+#                 BIRTH_YR_MON = "VARCHAR",
+#                 SEX = "VARCHAR",
+#                 POSTAL_CODE = "VARCHAR",
+#                 CITY = "VARCHAR",
+#                 STREET_LINE = "VARCHAR",
+#                 LHA = "VARCHAR",
+#                 CHSA = "VARCHAR",
+#                 LATITUDE = "DOUBLE",
+#                 LONGITUDE = "DOUBLE",
+#                 EFF_DATE = "DATE",
+#                 END_DATE = "DATE")
+#
+# csv_col_types_df <- csv_col_types %>%
+#   as.data.frame() %>%
+#   tibble::rownames_to_column("COLUMN_NAME")  %>%
+#   set_names( c("COLUMN_NAME","COLUMN_TYPE"))
+#
+# health_csv_file_meta_data_df <- data.frame(
+#   file_name = character(),
+#   file_name_no_suffix = character(),
+#   sql_table_name = character(),
+#   relative_path = character(),
+#   subfolder_path = character(),
+#   file_size = character(),
+#   file_loaded = logical(),
+#   COLUMN_NAME = character(),
+#   COLUMN_TYPE = character()
+# )
+#
+# # create a meta file to record the status of the csv files with data type information
+# for (i in 1:nrow(health_csv_file_list)) {
+#   one_table = health_csv_file_list %>% slice(i)
+#
+#   sql_table_name = one_table %>%
+#     pull(sql_table_name)
+#   if ( sql_table_name == "CLR_EXT_20190527") {
+#     # do nothing
+#   } else if (i < 86) {
+#     # file before 20230828
+#     health_csv_file_meta_data_df = health_csv_file_meta_data_df %>%
+#       bind_rows(one_table%>% tidyr::crossing(csv_col_types_before_202308_df))
+#   }
+#   else {
+#     health_csv_file_meta_data_df = health_csv_file_meta_data_df %>%
+#       bind_rows(one_table %>% tidyr::crossing(csv_col_types_df))
+#   }
+#
+# }
+#
+# # save the meta file back to LAN
+#
+# health_csv_file_meta_data_df  %>%  write_csv(
+#   file.path(
+#     lan_csv_file_path,
+#     "Population Estimates/Sub-Provincial (Annual)/01_Health Monthly Client Data/",
+#     "clr_ext_csv_files_list_with_sql_names_meta.csv"
+#   )
+# )
 
 
 # read CSV to mssql
