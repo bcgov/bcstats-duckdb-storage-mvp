@@ -89,96 +89,15 @@ info(file_logger, "Starte reading csv file write to sqlserver")
 ############################################################################################################################################
 # Health monthly client data
 ############################################################################################################################################
-health_table_list = c(
-  'CLR_EXT_20160927',
-  'CLR_EXT_20161027',
-  'CLR_EXT_20161128',
-  'CLR_EXT_20161229',
-  'CLR_EXT_20170126',
-  'CLR_EXT_20170227',
-  'CLR_EXT_20170324',
-  'CLR_EXT_20170427',
-  'CLR_EXT_20170626',
-  'CLR_EXT_20170727',
-  'CLR_EXT_20170825',
-  'CLR_EXT_20170928',
-  'CLR_EXT_20171026',
-  'CLR_EXT_20171128',
-  'CLR_EXT_20171228',
-  'CLR_EXT_20180228',
-  'CLR_EXT_20180327',
-  'CLR_EXT_20180426',
-  'CLR_EXT_20180529',
-  'CLR_EXT_20180628',
-  'CLR_EXT_20180829',
-  'CLR_EXT_20181129',
-  'CLR_EXT_20181224',
-  'CLR_EXT_20190128',
-  'CLR_EXT_20190228',
-  'CLR_EXT_20190327',
-  'CLR_EXT_20190429',
-  'CLR_EXT_20190628',
-  'CLR_EXT_20190729',
-  'CLR_EXT_20190829',
-  'CLR_EXT_20180730',
-  'CLR_EXT_20190927',
-  'CLR_EXT_20191028',
-  'CLR_EXT_20191128',
-  'CLR_EXT_20191224',
-  'CLR_EXT_20200127',
-  'CLR_EXT_20200227',
-  'CLR_EXT_20200330',
-  'CLR_EXT_20200427',
-  'CLR_EXT_20200525',
-  'CLR_EXT_20200629',
-  'CLR_EXT_20200729',
-  'CLR_EXT_20200825',
-  'CLR_EXT_20201130',
-  'CLR_EXT_20201229',
-  'CLR_EXT_20210128',
-  'CLR_EXT_20210225',
-  'CLR_EXT_20210430',
-  # 'CLR_EXT_20210609',
-  'CLR_EXT_20210628',
-  'CLR_EXT_20210729',
-  'CLR_EXT_20210830',
-  'CLR_EXT_20210927',
-  'CLR_EXT_20211028',
-  'CLR_EXT_20211129',
-  'CLR_EXT_20211230',
-  'CLR_EXT_20220128',
-  'CLR_EXT_20220228',
-  'CLR_EXT_20220330',
-  'CLR_EXT_20220430',
-  'CLR_EXT_20220530',
-  'CLR_EXT_20220627',
-  'CLR_EXT_20220728',
-  'CLR_EXT_20220829',
-  'CLR_EXT_20220927',
-  'CLR_EXT_20221028',
-  'CLR_EXT_20221129',
-  'CLR_EXT_20230103',
-  'CLR_EXT_20230227',
-  'BC_STAT_POPULATION_ESTIMATES_20230327',
-  'CLR_EXT_20230426',
-  'CLR_EXT_20230525',
-  'CLR_EXT_20230626',
-  'CLR_EXT_20230726',
-  'CLR_EXT_20230828',
-  'CLR_EXT_20230927',
-  'CLR_EXT_20231030',
-  'CLR_EXT_20231127',
-  'CLR_EXT_20231227',
-  'BC_STAT_POPULATION_ESTIMATES_20240129',
-  'BC_STAT_POPULATION_ESTIMATES_20240226',
-  'BC_STAT_POPULATION_ESTIMATES_20240326',
-  'BC_STAT_POPULATION_ESTIMATES_20240429',
-  'BC_STAT_POPULATION_ESTIMATES_20240527',
-  'BC_STAT_POPULATION_ESTIMATES_20240628',
-  'BC_STAT_POPULATION_ESTIMATES_20240726',
-  'BC_STAT_POPULATION_ESTIMATES_20240827',
-  'BC_STAT_POPULATION_ESTIMATES_20240926'
+
+health_csv_file_list = read_csv(
+  file.path(
+    lan_csv_file_path,
+    "Population Estimates/Sub-Provincial (Annual)/01_Health Monthly Client Data/",
+    "clr_ext_csv_files_list_with_sql_names.csv"
+  )
 )
+
 ############################################################################################
 csv_col_types_before_202308 = c(
   STUDY_ID = "VARCHAR",
@@ -216,10 +135,12 @@ csv_col_types_df <- csv_col_types %>%
   tibble::rownames_to_column("COLUMN_NAME") %>%
   set_names(c("COLUMN_NAME", "COLUMN_TYPE"))
 
+
+health_csv_file_list$sql_table_name
 ############################################################################################
-# copy tables from dev to prod in mssql
-for (i in 1:length(health_table_list)) {
-  sql_table_name = health_table_list[i]
+# copy health tables from dev to prod in mssql
+for (i in 1:length(health_csv_file_list$sql_table_name)) {
+  sql_table_name = health_csv_file_list$sql_table_name[i]
   log_info(sprintf("Start processing table '%s'.", sql_table_name))
 
   # add the date part back to the new table name
@@ -242,6 +163,7 @@ for (i in 1:length(health_table_list)) {
     name = Id(schema = "dev", table = sql_table_name)
   ) -> dev_table_exists
   if (dev_table_exists) {
+    log_info(sprintf("The table '%s' exists in dev.", sql_table_name))
     copy_sql_query = glue::glue(
       "IF OBJECT_ID('prod.{sql_table_name}', 'U') IS NOT NULL
       BEGIN
@@ -260,6 +182,7 @@ for (i in 1:length(health_table_list)) {
   ) -> prod_table_exists
   # then drop tables from dev database
   if (prod_table_exists) {
+    log_info(sprintf("The table '%s' exists in prod.", new_sql_table_name))
     drop_sql_query = glue::glue(
       "IF OBJECT_ID('dev.{sql_table_name}', 'U') IS NOT NULL
         BEGIN
